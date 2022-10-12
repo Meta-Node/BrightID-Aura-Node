@@ -16,5 +16,11 @@
   },
   "variables": {
     "type": "full"
+  },
+  "honesty": {
+    "type": "full"
+  },
+  "energyAllocation": {
+    "type": "full"
   }
 }
