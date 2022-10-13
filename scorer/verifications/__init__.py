@@ -7,3 +7,4 @@ from . import social_recovery_setup
 from . import apps
 from . import seed
 from . import predefined
+from . import aura
