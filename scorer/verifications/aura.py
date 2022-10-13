@@ -1,6 +1,6 @@
 from arango import ArangoClient
 import time
-import utils
+from . import utils
 import config
 import os
 
