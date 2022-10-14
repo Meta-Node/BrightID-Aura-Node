@@ -8,6 +8,8 @@ const collections = {
   groups: "document",
   usersInGroups: "edge",
   users: "document",
+  honesty: "edge",
+  energyAllocation: "edge",
   // this collection should be dropped when v5 drops
   contexts: "document",
   apps: "document",
@@ -35,6 +37,7 @@ const indexes = [
   { collection: "verifications", fields: ["block"], type: "persistent" },
   { collection: "verifications", fields: ["expression"], type: "persistent" },
   { collection: "verifications", fields: ["rank"], type: "persistent" },
+  { collection: "honesty", fields: ["modified"], type: "persistent" },
   {
     collection: "sponsorships",
     fields: ["expireDate"],
