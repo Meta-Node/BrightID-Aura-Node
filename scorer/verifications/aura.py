@@ -1,6 +1,4 @@
 from arango import ArangoClient
-import time
-from . import utils
 import config
 import os
 
@@ -23,6 +21,12 @@ HOPS = 4
 FLAGGING_MULTIPLIER = 4
 RATING_CUTOFF_HOURS = 72
 ALLOWED_RATINGS_PER_CUTOFF = 18
+
+# Aura levels
+
+GOLD = 10000000
+SILVER = 5000000
+BRONZE = 1
 
 
 def verify(block):
@@ -124,10 +128,42 @@ def verify(block):
 
     # Transfer the aura collection from snapshot to _system
 
-    result = os.system(f'arangodump --overwrite true --compress-output false --server.password "" --server.endpoint "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}" --output-directory {AURA_SNAPSHOT_DIR} --server.database snapshot --collection aura')
+    result = os.system(
+        f'arangodump --overwrite true --compress-output false --server.password ""'
+        f' --server.endpoint "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}"'
+        f' --output-directory {AURA_SNAPSHOT_DIR} --server.database snapshot --collection aura'
+    )
     assert result == 0, "Aura: dumping aura collection failed."
-    result = os.system(f"arangorestore --server.username 'root' --server.password '' --server.endpoint 'tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}' --input-directory {AURA_SNAPSHOT_DIR} ")
+    result = os.system(
+        f'arangorestore --server.username "root" --server.password "" --server.endpoint'
+        f' "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}" --input-directory {AURA_SNAPSHOT_DIR}'
+    )
     assert result == 0, "Aura: restoring aura collection failed."
+
+    # Write the verifications
+
+    system.aql.execute('''
+        for a in aura
+        let level =
+            a.score > @gold ? "Gold" :
+            a.score > @silver ? "Silver" :
+            a.score > @bronze ? "Bronze" :
+            a.score > 0 ? "Zero" : "Sus"
+        insert {
+            name: "Aura",
+            user: a._key,
+            block: @block,
+            timestamp: date_now(),
+            score: a.score,
+            level: level
+        } into verifications
+    ''', bind_vars={
+        "gold": GOLD,
+        "silver": SILVER,
+        "bronze": BRONZE,
+        "block": block,
+    })
+
 
 if __name__ == "__main__":
     verify(0)
