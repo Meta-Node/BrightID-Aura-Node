@@ -10,7 +10,7 @@ snapshot = client.db('snapshot')
 
 # Constants related to arangodump
 
-AURA_SNAPSHOT_DIR = f'{config.SNAPSHOTS_PATH}/aura'
+AURA_SNAPSHOT_DIR = f'/tmp/aura'
 
 # Constants related to Aura scores
 
