@@ -1,5 +1,4 @@
 const arango = require("@arangodb").db;
-const db = require("./db");
 const { query } = require("@arangodb");
 
 const collections = {
@@ -10,7 +9,6 @@ const collections = {
   users: "document",
   honesty: "edge",
   energyAllocation: "edge",
-  // this collection should be dropped when v5 drops
   contexts: "document",
   apps: "document",
   sponsorships: "edge",
@@ -19,7 +17,6 @@ const collections = {
   invitations: "edge",
   variables: "document",
   verifications: "document",
-  // this collection should be dropped when v5 drops
   testblocks: "document",
   cachedParams: "document",
   signedVerifications: "document",
@@ -201,7 +198,7 @@ function initdb() {
   initializeVariables();
   let index;
   if (variablesColl.exists("LAST_DB_UPGRADE_V6")) {
-    upgrade = variablesColl.document("LAST_DB_UPGRADE_V6").value;
+    let upgrade = variablesColl.document("LAST_DB_UPGRADE_V6").value;
     index = upgrades.indexOf(upgrade) + 1;
   } else {
     index = 0;
