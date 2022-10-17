@@ -1,6 +1,7 @@
 from arango import ArangoClient
 import config
 import os
+import time
 
 client = ArangoClient(hosts=config.ARANGO_SERVER)
 system = client.db('_system')
@@ -40,6 +41,9 @@ def verify(block):
     if not snapshot.has_collection('energyNext'):
         snapshot.create_collection('energyNext')
 
+    if not snapshot.has_collection('energyFlow'):
+        snapshot.create_collection('energyFlow', edge=True)
+
     if not snapshot.has_collection('aura'):
         snapshot.create_collection('aura')
 
@@ -69,21 +73,44 @@ def verify(block):
     # Flow the energy
 
     for i in range(HOPS):
-        snapshot.aql.execute('''
-            for e in energy
-                let scale = sum (
+
+        if i < HOPS - 1:
+            snapshot.aql.execute('''
+                for e in energy
+                    let scale = sum (
+                        for ea in energyAllocation
+                            filter ea._from == e._id
+                            return ea.allocation
+                    )
                     for ea in energyAllocation
                         filter ea._from == e._id
-                        return ea.allocation
-                )
-                for ea in energyAllocation
-                    filter ea._from == e._id
-                    let key = split(ea._to,'/',2)[1]
-                    upsert { _key: key }
-                    insert { _key: key, energy: e.energy * ea.allocation / scale }
-                    update { energy: OLD.energy + e.energy * ea.allocation / scale }
-                    in energyNext
-        ''')
+                        let key = split(ea._to,'/',2)[1]
+                        upsert { _key: key }
+                        insert { _key: key, energy: e.energy * ea.allocation / scale }
+                        update { energy: OLD.energy + e.energy * ea.allocation / scale }
+                        in energyNext
+            ''')
+        else:  # Store transfers on the last hop for data visualization
+            snapshot.aql.execute('''
+                for e in energy
+                    let scale = sum (
+                        for ea in energyAllocation
+                            filter ea._from == e._id
+                            return ea.allocation
+                    )
+                    for ea in energyAllocation
+                        filter ea._from == e._id
+                        let key = split(ea._to,'/',2)[1]
+                        let energySent = e.energy * ea.allocation / scale
+                        upsert { _key: key }
+                        insert { _key: key, energy: energySent }
+                        update { energy: OLD.energy + energySent }
+                        in energyNext
+                        insert { _from: ea._from, _to: ea._to, energy: energySent, timestamp: @timestamp }
+                        in energyFlow
+            ''', bind_vars={
+                "timestamp": time.time() * 1000
+            })
 
         energy.truncate()
         energy.rename('energyTemp')
