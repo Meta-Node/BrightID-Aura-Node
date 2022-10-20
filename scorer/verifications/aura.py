@@ -72,6 +72,8 @@ def verify(block):
 
     # Flow the energy
 
+    timestamp = time.time() * 1000
+
     for i in range(HOPS):
 
         if i < HOPS - 1:
@@ -109,8 +111,17 @@ def verify(block):
                         insert { _from: ea._from, _to: ea._to, energy: energySent, timestamp: @timestamp }
                         in energyFlow
             ''', bind_vars={
-                "timestamp": time.time() * 1000
+                "timestamp": timestamp
             })
+
+        # Clean up old energyFlow data
+        snapshot.aql.execute('''
+            for ef in energyFlow
+                filter ef.timestamp < @timestamp
+                remove ef in energyFlow
+        ''', bind_vars={
+            "timestamp": timestamp
+        })
 
         energy.truncate()
         energy.rename('energyTemp')
