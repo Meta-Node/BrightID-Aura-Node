@@ -42,7 +42,8 @@ def verify(block):
         snapshot.create_collection('energyNext')
 
     if not snapshot.has_collection('energyFlow'):
-        snapshot.create_collection('energyFlow', edge=True)
+        energy_flow = snapshot.create_collection('energyFlow', edge=True)
+        energy_flow.add_persistent_index(fields=['timestamp'])
 
     if not snapshot.has_collection('aura'):
         snapshot.create_collection('aura')
@@ -115,9 +116,21 @@ def verify(block):
             })
 
         # Clean up old energyFlow data
+        #
+        # Remove the rows with the middle timestamp from today (if it exists)
+        # leaving only the most recent and least recent rows.
+
         snapshot.aql.execute('''
+             let timesToday = (
+                for ef in energyFlow
+                    filter ef.timestamp < @timestamp
+                    and ef.timestamp > DATE_SUBTRACT(@timestamp, 1, "day")
+                    collect timestamp = ef.timestamp
+                return { timestamp: timestamp }
+            )
+
             for ef in energyFlow
-                filter ef.timestamp < @timestamp
+                filter ef.timestamp == timesToday[1].timestamp
                 remove ef in energyFlow
         ''', bind_vars={
             "timestamp": timestamp
