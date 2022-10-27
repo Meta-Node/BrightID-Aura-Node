@@ -130,7 +130,8 @@ def verify(block):
             )
 
             for ef in energyFlow
-                filter ef.timestamp == timesToday[1].timestamp
+                filter ef.timestamp == ( length(timesToday) > 2
+                    ? timesToday[1].timestamp : "nothingToRemove" )
                 remove ef in energyFlow
         ''', bind_vars={
             "timestamp": timestamp
