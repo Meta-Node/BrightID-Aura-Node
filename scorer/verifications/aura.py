@@ -124,7 +124,7 @@ def verify(block):
              let timesToday = (
                 for ef in energyFlow
                     filter ef.timestamp < @timestamp
-                    and ef.timestamp > DATE_SUBTRACT(@timestamp, 1, "day")
+                    and ef.timestamp > @timestamp - 86400000
                     collect timestamp = ef.timestamp
                 return { timestamp: timestamp }
             )
