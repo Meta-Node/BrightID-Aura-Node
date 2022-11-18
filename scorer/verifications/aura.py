@@ -153,7 +153,7 @@ def verify(block):
         energy_next = snapshot.collection("energyNext")
 
     # Energy flow table is clean now
-    # use this data to comput total energy flow to each aura player
+    # Use this data to compute the total energy flow to each Aura player.
     # we need to sum all row with the same _to and _timestamp to get total inflow energy
 
     snapshot.aql.execute(
