@@ -120,33 +120,33 @@ def verify(block):
                 "timestamp": timestamp
             })
 
-        # Clean up old energyFlow data
-        #
-        # Remove the rows with the middle timestamp from today (if it exists)
-        # leaving only the most recent and least recent rows.
-
-        snapshot.aql.execute('''
-             let timesToday = (
-                for ef in energyFlow
-                    filter ef.timestamp < @timestamp
-                    and ef.timestamp > @timestamp - 86400000
-                    collect timestamp = ef.timestamp
-                return { timestamp: timestamp }
-            )
-
-            for ef in energyFlow
-                filter ef.timestamp == timesToday[1].timestamp
-                remove ef in energyFlow
-        ''', bind_vars={
-            "timestamp": timestamp
-        })
-
         energy.truncate()
         energy.rename('energyTemp')
         energy_next.rename('energy')
         energy.rename('energyNext')
         energy = snapshot.collection('energy')
         energy_next = snapshot.collection('energyNext')
+
+    # Clean up old energyFlow data
+    #
+    # Remove the rows with the middle timestamp from today (if it exists)
+    # leaving only the most recent and least recent rows.
+
+    snapshot.aql.execute('''
+         let timesToday = (
+            for ef in energyFlow
+                filter ef.timestamp < @timestamp
+                and ef.timestamp > @timestamp - 86400000
+                collect timestamp = ef.timestamp
+            return { timestamp: timestamp }
+        )
+
+        for ef in energyFlow
+            filter ef.timestamp == timesToday[1].timestamp
+            remove ef in energyFlow
+    ''', bind_vars={
+        "timestamp": timestamp
+    })
 
     # Compute Aura scores
 
