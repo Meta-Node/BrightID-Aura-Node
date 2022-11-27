@@ -43,6 +43,7 @@ def verify(block):
 
     if not snapshot.has_collection('energyTotals'):
         energy_totals = snapshot.create_collection('energyTotals')
+        energy_totals.add_persistent_index(fields=['timestamp'])
 
     if not snapshot.has_collection('aura'):
         snapshot.create_collection('aura')
@@ -123,7 +124,17 @@ def verify(block):
         energy = snapshot.collection('energy')
         energy_next = snapshot.collection('energyNext')
 
-    # Clean up old energyFlow data
+    # Write energy totals by timestamp to energyTotals
+
+    snapshot.aql.execute('''
+        for e in energy
+            insert { _key: e._key , energy: e.energy, timestamp: @timestamp }
+            in energyTotals
+    ''', bind_vars={
+        "timestamp": timestamp
+    })
+
+    # Clean up old energyFlow and energyTotals data
     #
     # Remove the rows with the middle timestamp from today (if it exists)
     # leaving only the most recent and least recent rows.
@@ -140,6 +151,22 @@ def verify(block):
         for ef in energyFlow
             filter ef.timestamp == timesToday[1].timestamp
             remove ef in energyFlow
+    ''', bind_vars={
+        "timestamp": timestamp
+    })
+
+    snapshot.aql.execute('''
+         let timesToday = (
+            for et in energyTotals
+                filter et.timestamp < @timestamp
+                and et.timestamp > @timestamp - 86400000
+                collect timestamp = et.timestamp
+            return { timestamp: timestamp }
+        )
+
+        for et in energyTotals
+            filter et.timestamp == timesToday[1].timestamp
+            remove et in energyTotals
     ''', bind_vars={
         "timestamp": timestamp
     })
@@ -178,13 +205,13 @@ def verify(block):
         "allowedRatings": ALLOWED_RATINGS_PER_CUTOFF,
     })
 
-    # Transfer the aura and energy collections from snapshot to _system
+    # Transfer the aura, energy, and energyFlow collections from snapshot to _system
 
     result = os.system(
         f'arangodump --overwrite true --compress-output false --server.password ""'
         f' --server.endpoint "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}"'
         f' --output-directory {config.AURA_SNAPSHOT_DIR} --server.database snapshot'
-        f' --collection aura --collection energy'
+        f' --collection aura --collection energy --collection energyFlow'
     )
     assert result == 0, "Aura: dumping aura collection failed."
     result = os.system(
