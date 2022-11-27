@@ -45,18 +45,23 @@ def verify(block):
         energy_flow = snapshot.create_collection('energyFlow', edge=True)
         energy_flow.add_persistent_index(fields=['timestamp'])
 
+    if not snapshot.has_collection('energyTotals'):
+        energy_totals = snapshot.create_collection('energyTotals')
+
     if not snapshot.has_collection('aura'):
         snapshot.create_collection('aura')
 
     energy = snapshot.collection('energy')
     energy_next = snapshot.collection('energyNext')
     aura = snapshot.collection('aura')
+    energy_totals = snapshot.collection('energyTotals')
 
     # Clear collections
 
     energy.truncate()
     energy_next.truncate()
     aura.truncate()
+    energy_totals.truncate()
 
     # Initialize the energy
 
