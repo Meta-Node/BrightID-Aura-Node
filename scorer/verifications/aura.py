@@ -37,8 +37,6 @@ def verify(block):
     if not snapshot.has_collection('energyNext'):
         snapshot.create_collection('energyNext')
 
-    # TODO: remove the timestamp from energyFlow when the explorer stops using it
-
     if not snapshot.has_collection('energyFlow'):
         energy_flow = snapshot.create_collection('energyFlow', edge=True)
         energy_flow.add_persistent_index(fields=['timestamp'])
@@ -135,25 +133,19 @@ def verify(block):
     })
 
     # Clean up old energyFlow and energyTotals data
-    #
-    # Remove the rows with the middle timestamp from today (if it exists)
-    # leaving only the most recent and least recent rows.
+
+    # For energyFlow, remove all but the most recent timestamp
 
     snapshot.aql.execute('''
-         let timesToday = (
-            for ef in energyFlow
-                filter ef.timestamp < @timestamp
-                and ef.timestamp > @timestamp - 86400000
-                collect timestamp = ef.timestamp
-            return { timestamp: timestamp }
-        )
-
         for ef in energyFlow
-            filter ef.timestamp == timesToday[1].timestamp
+            filter ef.timestamp < @timestamp
             remove ef in energyFlow
     ''', bind_vars={
         "timestamp": timestamp
     })
+
+    # For energyTotals, remove the rows with the middle timestamp from today (if it exists)
+    # leaving only the most recent and least recent rows. This keeps one set of totals per day.
 
     snapshot.aql.execute('''
          let timesToday = (
