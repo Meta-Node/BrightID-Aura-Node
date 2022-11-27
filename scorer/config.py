@@ -15,4 +15,8 @@ BN_ARANGO_HOST = os.environ['BN_ARANGO_HOST']
 BN_ARANGO_PORT = int(os.environ['BN_ARANGO_PORT'])
 ARANGO_SERVER = f'{BN_ARANGO_PROTOCOL}://{BN_ARANGO_HOST}:{BN_ARANGO_PORT}'
 SNAPSHOTS_PERIOD = int(os.environ['BN_CONSENSUS_SNAPSHOTS_PERIOD'])
-AURA_SNAPSHOT_DIR = os.environ['AURA_SNAPSHOT_DIR'] or f'/tmp/aura'
+if 'AURA_SNAPSHOT_DIR' in os.environ:
+    AURA_SNAPSHOT_DIR = os.environ['AURA_SNAPSHOT_DIR']
+else:
+    AURA_SNAPSHOT_DIR = f'/tmp/aura'
+
