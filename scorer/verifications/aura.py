@@ -37,6 +37,8 @@ def verify(block):
     if not snapshot.has_collection('energyNext'):
         snapshot.create_collection('energyNext')
 
+    # TODO: remove the timestamp from energyFlow when the explorer stops using it
+
     if not snapshot.has_collection('energyFlow'):
         energy_flow = snapshot.create_collection('energyFlow', edge=True)
         energy_flow.add_persistent_index(fields=['timestamp'])
@@ -51,14 +53,12 @@ def verify(block):
     energy = snapshot.collection('energy')
     energy_next = snapshot.collection('energyNext')
     aura = snapshot.collection('aura')
-    energy_totals = snapshot.collection('energyTotals')
 
     # Clear collections
 
     energy.truncate()
     energy_next.truncate()
     aura.truncate()
-    energy_totals.truncate()
 
     # Initialize the energy
 
@@ -128,7 +128,7 @@ def verify(block):
 
     snapshot.aql.execute('''
         for e in energy
-            insert { _key: e._key , energy: e.energy, timestamp: @timestamp }
+            insert { user: concat('users/', e._key) , energy: e.energy, timestamp: @timestamp }
             in energyTotals
     ''', bind_vars={
         "timestamp": timestamp
@@ -242,6 +242,32 @@ def verify(block):
         "silver": SILVER,
         "bronze": BRONZE,
         "block": block,
+    })
+
+    # Write energy to users
+
+    system.aql.execute('''
+        for e in energy
+            update e with { energy: e.energy }
+            in users
+    ''')
+
+    # Write energyFlow to connections
+    #
+    # TODO: this is slow. It takes 6 seconds for 1000 edges. Better to read from energyFlow than do these writes.
+
+    system.aql.execute('''
+        for ef in energyFlow
+            filter ef.timestamp == @timestamp
+            let to = CONCAT_SEPARATOR('/','users',split(ef._to,'/',2)[1])
+            let from = CONCAT_SEPARATOR('/','users',split(ef._from,'/',2)[1])
+            for c in connections
+                filter c._to == to
+                and c._from == from
+                update c with { energy: ef.energy }
+                in connections
+    ''', bind_vars={
+        "timestamp": timestamp
     })
 
 
