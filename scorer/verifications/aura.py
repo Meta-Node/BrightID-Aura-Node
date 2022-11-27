@@ -7,10 +7,6 @@ client = ArangoClient(hosts=config.ARANGO_SERVER)
 system = client.db('_system')
 snapshot = client.db('snapshot')
 
-# Constants related to arangodump
-
-AURA_SNAPSHOT_DIR = f'/tmp/aura'
-
 # Constants related to Aura scores
 
 ENERGY_TEAM = [
@@ -41,9 +37,15 @@ def verify(block):
     if not snapshot.has_collection('energyNext'):
         snapshot.create_collection('energyNext')
 
+    # TODO: remove the timestamp from energyFlow when the explorer stops using it
+
     if not snapshot.has_collection('energyFlow'):
         energy_flow = snapshot.create_collection('energyFlow', edge=True)
         energy_flow.add_persistent_index(fields=['timestamp'])
+
+    if not snapshot.has_collection('energyTotals'):
+        energy_totals = snapshot.create_collection('energyTotals')
+        energy_totals.add_persistent_index(fields=['timestamp'])
 
     if not snapshot.has_collection('aura'):
         snapshot.create_collection('aura')
@@ -115,33 +117,59 @@ def verify(block):
                 "timestamp": timestamp
             })
 
-        # Clean up old energyFlow data
-        #
-        # Remove the rows with the middle timestamp from today (if it exists)
-        # leaving only the most recent and least recent rows.
-
-        snapshot.aql.execute('''
-             let timesToday = (
-                for ef in energyFlow
-                    filter ef.timestamp < @timestamp
-                    and ef.timestamp > @timestamp - 86400000
-                    collect timestamp = ef.timestamp
-                return { timestamp: timestamp }
-            )
-
-            for ef in energyFlow
-                filter ef.timestamp == timesToday[1].timestamp
-                remove ef in energyFlow
-        ''', bind_vars={
-            "timestamp": timestamp
-        })
-
         energy.truncate()
         energy.rename('energyTemp')
         energy_next.rename('energy')
         energy.rename('energyNext')
         energy = snapshot.collection('energy')
         energy_next = snapshot.collection('energyNext')
+
+    # Write energy totals by timestamp to energyTotals
+
+    snapshot.aql.execute('''
+        for e in energy
+            insert { user: concat('users/', e._key) , energy: e.energy, timestamp: @timestamp }
+            in energyTotals
+    ''', bind_vars={
+        "timestamp": timestamp
+    })
+
+    # Clean up old energyFlow and energyTotals data
+    #
+    # Remove the rows with the middle timestamp from today (if it exists)
+    # leaving only the most recent and least recent rows.
+
+    snapshot.aql.execute('''
+         let timesToday = (
+            for ef in energyFlow
+                filter ef.timestamp < @timestamp
+                and ef.timestamp > @timestamp - 86400000
+                collect timestamp = ef.timestamp
+            return { timestamp: timestamp }
+        )
+
+        for ef in energyFlow
+            filter ef.timestamp == timesToday[1].timestamp
+            remove ef in energyFlow
+    ''', bind_vars={
+        "timestamp": timestamp
+    })
+
+    snapshot.aql.execute('''
+         let timesToday = (
+            for et in energyTotals
+                filter et.timestamp < @timestamp
+                and et.timestamp > @timestamp - 86400000
+                collect timestamp = et.timestamp
+            return { timestamp: timestamp }
+        )
+
+        for et in energyTotals
+            filter et.timestamp == timesToday[1].timestamp
+            remove et in energyTotals
+    ''', bind_vars={
+        "timestamp": timestamp
+    })
 
     # Compute Aura scores
 
@@ -177,17 +205,18 @@ def verify(block):
         "allowedRatings": ALLOWED_RATINGS_PER_CUTOFF,
     })
 
-    # Transfer the aura collection from snapshot to _system
+    # Transfer the aura, energy, and energyFlow collections from snapshot to _system
 
     result = os.system(
         f'arangodump --overwrite true --compress-output false --server.password ""'
         f' --server.endpoint "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}"'
-        f' --output-directory {AURA_SNAPSHOT_DIR} --server.database snapshot --collection aura'
+        f' --output-directory {config.AURA_SNAPSHOT_DIR} --server.database snapshot'
+        f' --collection aura --collection energy --collection energyFlow'
     )
     assert result == 0, "Aura: dumping aura collection failed."
     result = os.system(
         f'arangorestore --server.username "root" --server.password "" --server.endpoint'
-        f' "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}" --input-directory {AURA_SNAPSHOT_DIR}'
+        f' "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}" --input-directory {config.AURA_SNAPSHOT_DIR}'
     )
     assert result == 0, "Aura: restoring aura collection failed."
 
@@ -213,6 +242,32 @@ def verify(block):
         "silver": SILVER,
         "bronze": BRONZE,
         "block": block,
+    })
+
+    # Write energy to users
+
+    system.aql.execute('''
+        for e in energy
+            update e with { energy: e.energy }
+            in users
+    ''')
+
+    # Write energyFlow to connections
+    #
+    # TODO: this is slow. It takes 6 seconds for 1000 edges. Better to read from energyFlow than do these writes.
+
+    system.aql.execute('''
+        for ef in energyFlow
+            filter ef.timestamp == @timestamp
+            let to = CONCAT_SEPARATOR('/','users',split(ef._to,'/',2)[1])
+            let from = CONCAT_SEPARATOR('/','users',split(ef._from,'/',2)[1])
+            for c in connections
+                filter c._to == to
+                and c._from == from
+                update c with { energy: ef.energy }
+                in connections
+    ''', bind_vars={
+        "timestamp": timestamp
     })
 
 
