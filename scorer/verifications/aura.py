@@ -7,10 +7,6 @@ client = ArangoClient(hosts=config.ARANGO_SERVER)
 system = client.db('_system')
 snapshot = client.db('snapshot')
 
-# Constants related to arangodump
-
-AURA_SNAPSHOT_DIR = f'/tmp/aura'
-
 # Constants related to Aura scores
 
 ENERGY_TEAM = [
@@ -182,17 +178,18 @@ def verify(block):
         "allowedRatings": ALLOWED_RATINGS_PER_CUTOFF,
     })
 
-    # Transfer the aura collection from snapshot to _system
+    # Transfer the aura and energy collections from snapshot to _system
 
     result = os.system(
         f'arangodump --overwrite true --compress-output false --server.password ""'
         f' --server.endpoint "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}"'
-        f' --output-directory {AURA_SNAPSHOT_DIR} --server.database snapshot --collection aura'
+        f' --output-directory {config.AURA_SNAPSHOT_DIR} --server.database snapshot'
+        f' --collection aura --collection energy'
     )
     assert result == 0, "Aura: dumping aura collection failed."
     result = os.system(
         f'arangorestore --server.username "root" --server.password "" --server.endpoint'
-        f' "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}" --input-directory {AURA_SNAPSHOT_DIR}'
+        f' "tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}" --input-directory {config.AURA_SNAPSHOT_DIR}'
     )
     assert result == 0, "Aura: restoring aura collection failed."
 
