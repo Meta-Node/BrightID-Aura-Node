@@ -120,5 +120,23 @@
     "uploadedTo": {
       "dappnode": "Fri, 19 Aug 2022 11:22:03 GMT"
     }
+  },
+  "1.13.0": {
+    "hash": "/ipfs/QmafRVKUe8ApmRSxXMoUcCSU5fmybYPZniZr1bKqFzJkCK",
+    "uploadedTo": {
+      "dappnode": "Mon, 10 Oct 2022 09:35:24 GMT"
+    }
+  },
+  "1.14.0": {
+    "hash": "/ipfs/QmVPDVG2PaMkYT4Cz8caCrj9hFtWR6pSwxjsRFV7Fg31WW",
+    "uploadedTo": {
+      "dappnode": "Wed, 30 Nov 2022 12:40:01 GMT"
+    }
+  },
+  "1.15.0": {
+    "hash": "/ipfs/QmQUn124YR77PY5tQ9uBELBE8Cr2nTKfJF6viFWD4UQxHh",
+    "uploadedTo": {
+      "dappnode": "Mon, 19 Dec 2022 13:50:25 GMT"
+    }
   }
 }
