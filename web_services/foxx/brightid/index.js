@@ -85,9 +85,10 @@ const handlers = {
   userConnectionsGet: function (req, res) {
     const id = req.param("id");
     const direction = req.param("direction");
+    const withVerifications = req.param("withVerifications");
     res.send({
       data: {
-        connections: db.userConnections(id, direction),
+        connections: db.userConnections(id, direction, withVerifications),
       },
     });
   },
@@ -612,6 +613,15 @@ router
       .required()
       .valid("inbound", "outbound")
       .description("the direction of the connection")
+  )
+  .queryParam(
+      "withVerifications",
+      joi
+          .number()
+          .integer()
+          .description(
+              "if set 1, will send the verifications of the connections too."
+          )
   )
   .summary("Gets inbound or outbound connections of a user")
   .description("Gets user's connections with levels and timestamps")

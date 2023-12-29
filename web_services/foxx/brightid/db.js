@@ -112,7 +112,7 @@ function connect(op) {
   }
 }
 
-function userConnections(userId, direction = "outbound") {
+function userConnections(userId, direction, withVerifications = 0) {
   checkUserExists(userId);
   let query, resIdAttr;
   if (direction == "outbound") {
@@ -127,12 +127,19 @@ function userConnections(userId, direction = "outbound") {
     .toArray()
     .map((conn) => {
       const id = conn[resIdAttr].replace("users/", "");
-      return {
+      const obj = {
         id,
         level: conn.level,
         reportReason: conn.reportReason,
         timestamp: conn.timestamp,
       };
+      if(withVerifications) {
+        return  {
+          ...obj,
+          verifications: userVerifications(id),
+        }
+      }
+      return obj;
     });
 }
 

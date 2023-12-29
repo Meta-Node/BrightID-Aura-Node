@@ -534,7 +534,7 @@ describe("operations", function () {
       Object.values(nacl.sign.detached(strToUint8Array(message), u6.secretKey))
     );
     apply(op);
-    db.userConnections(u2.id)
+    db.userConnections(u2.id, "outbound")
       .filter((u) => u.id == u3.id)[0]
       .level.should.equal("reported");
   });

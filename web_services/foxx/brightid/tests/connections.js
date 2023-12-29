@@ -122,7 +122,7 @@ describe("connections", function () {
       reportReason: "duplicate",
       timestamp: 0,
     });
-    const conns = db.userConnections("b");
+    const conns = db.userConnections("b", "outbound");
     conns.length.should.equal(1);
     const a = conns[0];
     a.id.should.equal("a");
