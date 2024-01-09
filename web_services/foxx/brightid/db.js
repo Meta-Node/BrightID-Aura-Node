@@ -112,7 +112,7 @@ function connect(op) {
   }
 }
 
-function userConnections(userId, direction, withVerifications = 0) {
+function userConnections(userId, direction, withVerifications = false) {
   checkUserExists(userId);
   let query, resIdAttr;
   if (direction == "outbound") {
