@@ -617,11 +617,9 @@ router
   .queryParam(
       "withVerifications",
       joi
-          .number()
-          .integer()
-          .description(
-              "if set 1, will send the verifications of the connections too."
-          )
+          .boolean()
+          .default(false)
+          .description("true if the requester wants the verifications of the connections too")
   )
   .summary("Gets inbound or outbound connections of a user")
   .description("Gets user's connections with levels and timestamps")
