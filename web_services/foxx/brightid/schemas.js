@@ -30,7 +30,7 @@ const operations = {
       .string()
       .valid("spammer", "fake", "duplicate", "deceased", "replaced", "other")
       .description(
-        "for reported level, the reason for reporting the user specificed by id2"
+        "the reason for reporting the user specified by id2"
       ),
     replacedWith: joi
       .string()
