@@ -5,3 +5,9 @@ node_modules
 # DAppNodeSDK release directories
 build_*
 /docker.tar.gz
+
+# Local config.env file
+config.mine.env
+
+# IDE settings
+.idea
