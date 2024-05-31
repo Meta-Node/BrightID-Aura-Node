@@ -268,7 +268,7 @@ const operations = {
       .string()
       .required()
       .description(
-        "brightid of the member whom is being granted administratorship of the group"
+        "brightid of the member who is becoming an admin"
       ),
     group: joi.string().required().description("the unique id of the group"),
     sig: joi
