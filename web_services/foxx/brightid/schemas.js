@@ -456,6 +456,10 @@ schemas = Object.assign(
         .string()
         .valid("spammer", "fake", "duplicate", "deceased", "replaced", "other")
         .description("for reported level, the reason for reporting"),
+      verifications: joi
+          .array()
+          .items(joi.object())
+          .description("list of verification objects user has with properties each verification has")
     }),
     invite: joi.object({
       id: joi.string().required().description("unique identifier of invite"),
