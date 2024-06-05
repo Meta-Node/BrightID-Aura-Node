@@ -52,6 +52,7 @@ const verifyAppSig = function (message, app, sig) {
 
 const senderAttrs = {
   Connect: ["id1"],
+  Evaluate: ["evaluator"],
   "Add Group": ["id"],
   "Remove Group": ["id"],
   "Add Membership": ["id"],
@@ -151,6 +152,7 @@ function checkLimits(op, timeWindow, limit) {
 }
 
 const signerAndSigs = {
+  "Evaluate": ["evaluator","sig"],
   "Add Group": ["id", "sig"],
   "Remove Group": ["id", "sig"],
   "Add Membership": ["id", "sig"],

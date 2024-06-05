@@ -143,6 +143,45 @@ function userConnections(userId, direction, withVerifications = false) {
     });
 }
 
+function evaluate(op){
+  const {
+    evaluator: key1,
+    evaluated: key2,
+    evaluation,
+    domain,
+    category,
+    confidence,
+    timestamp,
+  } = op;
+
+  const _from = "users/" + key1;
+  const _to = "users/" + key2;
+  const conn = connectionsColl.firstExample({ _from, _to });
+
+  if(conn){
+    connectionsColl.update(conn, {
+      evaluation,
+      domain,
+      category,
+      confidence,
+      timestamp,
+    });
+  }
+  else {
+    connectionsColl.insert({
+      _from,
+      _to,
+      level: "aura only",
+      evaluation,
+      domain,
+      category,
+      confidence,
+      timestamp,
+      initTimestamp: timestamp,
+    });
+  }
+}
+
 function groupMembers(groupId) {
   return usersInGroupsColl
     .byExample({
@@ -1067,6 +1106,7 @@ function setRequiredRecoveryNum(id, requiredRecoveryNum, timestamp) {
 
 module.exports = {
   connect,
+  evaluate,
   createGroup,
   deleteGroup,
   addAdmin,

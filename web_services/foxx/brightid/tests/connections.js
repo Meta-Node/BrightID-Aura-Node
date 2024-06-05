@@ -146,6 +146,35 @@ describe("connections", function () {
     conn.reportReason.should.equal("replaced");
     conn.replacedWith.should.equal("b");
   });
+
+  describe("aura evaluations", function () {
+    var op = {
+      evaluator: "a",
+      evaluated: "b",
+      evaluation: "positive",
+      domain: "BrightID",
+      category: "subject",
+      confidence: 2,
+    };
+    it("should be able to add an evaluation to an existing connection", function() {
+      db.evaluate(op);
+      const conn = connectionsColl.firstExample({
+        _from: "users/a",
+        _to: "users/b",
+      });
+      conn.evaluation.should.equal("positive");
+    })
+    it("the evaluator should be able to evaluate a person to whom they are not yet connected", function() {
+      op.evaluator = "b";
+      op.evaluated = "c";
+      db.evaluate(op);
+      const conn = connectionsColl.firstExample({
+        _from: "users/b",
+        _to: "users/c",
+      });
+      conn.level.should.equal("aura only");
+    });
+  });
 });
 
 describe("recovery connections", function () {
