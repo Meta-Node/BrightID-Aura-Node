@@ -43,6 +43,35 @@ const operations = {
         "brightid + | + timestamp signed by the reported user to prove that he requested the connection"
       ),
   },
+  Evaluate: {
+    evaluator: joi
+      .string()
+      .required()
+      .description("BrightID of the evaluator"),
+    evaluated: joi
+      .string()
+      .required()
+      .description("BrightID of the person evaluated"),
+    evaluation: joi
+      .string()
+      .required()
+      .example("positive").example("negative"),
+    domain: joi
+      .string()
+      .required()
+      .example("BrightID"),
+    category: joi
+      .string()
+      .description("Within the domain, the category of the evaluated person or target")
+      .example("subject").example("player").example("trainer").example("manager")
+      .default("subject"),
+    confidence: joi
+      .number(),
+    sig: joi
+      .string()
+      .required()
+      .description("deterministic json representation of operation object signed by the evaluator"),
+  },
   "Add Group": {
     group: joi.string().required().description("the unique id of the group"),
     id: joi.string().required().description("brightid of the group founder"),
@@ -833,7 +862,7 @@ schemas = Object.assign(
         url: joi.string().required().description("url of the group"),
         info: joi
           .string()
-          .description("URL of a documnet that contains info about the group"),
+          .description("URL of a document that contains info about the group"),
         timestamp: joi
           .number()
           .required()
