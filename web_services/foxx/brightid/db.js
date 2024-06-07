@@ -154,28 +154,40 @@ function evaluate(op){
     timestamp,
   } = op;
 
+  function upsertAuraEval(newEval, evals){
+    if(!evals) evals = [];
+    evals = evals.filter(e => !(e.domain === newEval.domain && e.category === newEval.category));
+    evals.push(newEval);
+    return evals;
+  }
+
   const _from = "users/" + key1;
   const _to = "users/" + key2;
   const conn = connectionsColl.firstExample({ _from, _to });
 
+  const newEval = {
+    domain,
+    category,
+    evaluation,
+    confidence,
+  };
+
+  var auraEvaluations;
+
   if(conn){
+    auraEvaluations = upsertAuraEval(newEval, conn.auraEvaluations);
     connectionsColl.update(conn, {
-      evaluation,
-      domain,
-      category,
-      confidence,
+      auraEvaluations,
       timestamp,
     });
   }
   else {
+    auraEvaluations = upsertAuraEval(newEval);
     connectionsColl.insert({
       _from,
       _to,
       level: "aura only",
-      evaluation,
-      domain,
-      category,
-      confidence,
+      auraEvaluations,
       timestamp,
       initTimestamp: timestamp,
     });

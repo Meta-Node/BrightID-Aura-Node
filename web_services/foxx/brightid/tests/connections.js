@@ -148,7 +148,7 @@ describe("connections", function () {
   });
 
   describe("aura evaluations", function () {
-    var op = {
+    const op = {
       evaluator: "a",
       evaluated: "b",
       evaluation: "positive",
@@ -162,18 +162,36 @@ describe("connections", function () {
         _from: "users/a",
         _to: "users/b",
       });
-      conn.evaluation.should.equal("positive");
+      conn.auraEvaluations[0].evaluation.should.equal("positive");
     })
     it("the evaluator should be able to evaluate a person to whom they are not yet connected", function() {
-      op.evaluator = "b";
-      op.evaluated = "c";
-      db.evaluate(op);
+      const op2 = {...op, evaluator:"b", evaluated:"c"};
+      db.evaluate(op2);
       const conn = connectionsColl.firstExample({
         _from: "users/b",
         _to: "users/c",
       });
       conn.level.should.equal("aura only");
+      conn.auraEvaluations[0].evaluation.should.equal("positive");
     });
+    it("should be able to change an evaluation", function() {
+      const op3 = {...op, evaluation:"negative"};
+      db.evaluate(op3);
+      const conn = connectionsColl.firstExample({
+        _from: "users/a",
+        _to: "users/b",
+      });
+      conn.auraEvaluations[0].evaluation.should.equal("negative");
+    })
+    it("should be able to have evaluations in multiple categories", function() {
+      const op4 = {...op, category:"player"};
+      db.evaluate(op4);
+      const conn = connectionsColl.firstExample({
+        _from: "users/a",
+        _to: "users/b",
+      });
+      conn.auraEvaluations.should.have.a.lengthOf(2);
+    })
   });
 });
 
