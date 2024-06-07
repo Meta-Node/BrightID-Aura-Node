@@ -493,7 +493,7 @@ schemas = Object.assign(
         joi.object({
           domain: joi.string().required().example("BrightID"),
           category: joi.string().example("subject").example("player").example("trainer").example("manager"),
-          evaluation: joi.string().example("positive").example("negative"),
+          evaluation: joi.string().required().example("positive").example("negative"),
           confidence: joi.number(),
           impact: joi.number().description("the relative impact of this evaluation on the evaluated person")
         })
