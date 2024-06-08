@@ -143,6 +143,57 @@ function userConnections(userId, direction, withVerifications = false) {
     });
 }
 
+function evaluate(op){
+  const {
+    evaluator: key1,
+    evaluated: key2,
+    evaluation,
+    domain,
+    category,
+    confidence,
+    timestamp,
+  } = op;
+
+  function upsertAuraEval(newEval, evals){
+    if(!evals) evals = [];
+    evals = evals.filter(e => !(e.domain === newEval.domain && e.category === newEval.category));
+    evals.push(newEval);
+    return evals;
+  }
+
+  const _from = "users/" + key1;
+  const _to = "users/" + key2;
+  const conn = connectionsColl.firstExample({ _from, _to });
+
+  const newEval = {
+    domain,
+    category,
+    evaluation,
+    confidence,
+  };
+
+  var auraEvaluations;
+
+  if(conn){
+    auraEvaluations = upsertAuraEval(newEval, conn.auraEvaluations);
+    connectionsColl.update(conn, {
+      auraEvaluations,
+      timestamp,
+    });
+  }
+  else {
+    auraEvaluations = upsertAuraEval(newEval);
+    connectionsColl.insert({
+      _from,
+      _to,
+      level: "aura only",
+      auraEvaluations,
+      timestamp,
+      initTimestamp: timestamp,
+    });
+  }
+}
+
 function groupMembers(groupId) {
   return usersInGroupsColl
     .byExample({
@@ -1067,6 +1118,7 @@ function setRequiredRecoveryNum(id, requiredRecoveryNum, timestamp) {
 
 module.exports = {
   connect,
+  evaluate,
   createGroup,
   deleteGroup,
   addAdmin,

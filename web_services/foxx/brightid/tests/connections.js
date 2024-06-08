@@ -146,6 +146,53 @@ describe("connections", function () {
     conn.reportReason.should.equal("replaced");
     conn.replacedWith.should.equal("b");
   });
+
+  describe("aura evaluations", function () {
+    const op = {
+      evaluator: "a",
+      evaluated: "b",
+      evaluation: "positive",
+      domain: "BrightID",
+      category: "subject",
+      confidence: 2,
+    };
+    it("should be able to add an evaluation to an existing connection", function() {
+      db.evaluate(op);
+      const conn = connectionsColl.firstExample({
+        _from: "users/a",
+        _to: "users/b",
+      });
+      conn.auraEvaluations[0].evaluation.should.equal("positive");
+    })
+    it("the evaluator should be able to evaluate a person to whom they are not yet connected", function() {
+      const op2 = {...op, evaluator:"b", evaluated:"c"};
+      db.evaluate(op2);
+      const conn = connectionsColl.firstExample({
+        _from: "users/b",
+        _to: "users/c",
+      });
+      conn.level.should.equal("aura only");
+      conn.auraEvaluations[0].evaluation.should.equal("positive");
+    });
+    it("should be able to change an evaluation", function() {
+      const op3 = {...op, evaluation:"negative"};
+      db.evaluate(op3);
+      const conn = connectionsColl.firstExample({
+        _from: "users/a",
+        _to: "users/b",
+      });
+      conn.auraEvaluations[0].evaluation.should.equal("negative");
+    })
+    it("should be able to have evaluations in multiple categories", function() {
+      const op4 = {...op, category:"player"};
+      db.evaluate(op4);
+      const conn = connectionsColl.firstExample({
+        _from: "users/a",
+        _to: "users/b",
+      });
+      conn.auraEvaluations.should.have.a.lengthOf(2);
+    })
+  });
 });
 
 describe("recovery connections", function () {

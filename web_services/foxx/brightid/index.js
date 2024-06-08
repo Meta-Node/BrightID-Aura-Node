@@ -615,11 +615,11 @@ router
       .description("the direction of the connection")
   )
   .queryParam(
-      "withVerifications",
-      joi
-          .boolean()
-          .default(false)
-          .description("true if the requester wants the verifications of the connections too")
+    "withVerifications",
+    joi
+      .boolean()
+      .default(false)
+      .description("true if the requester wants the verifications of the connections too")
   )
   .summary("Gets inbound or outbound connections of a user")
   .description("Gets user's connections with levels and timestamps")
