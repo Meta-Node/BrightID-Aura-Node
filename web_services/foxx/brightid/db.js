@@ -132,6 +132,7 @@ function userConnections(userId, direction, withVerifications = false) {
         level: conn.level,
         reportReason: conn.reportReason,
         timestamp: conn.timestamp,
+        auraEvaluations: conn.auraEvaluations,
       };
       if(withVerifications) {
         return  {

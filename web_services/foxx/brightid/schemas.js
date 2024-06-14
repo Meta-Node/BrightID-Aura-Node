@@ -486,9 +486,17 @@ schemas = Object.assign(
         .valid("spammer", "fake", "duplicate", "deceased", "replaced", "other")
         .description("for reported level, the reason for reporting"),
       verifications: joi
-          .array()
-          .items(joi.object())
-          .description("list of verification objects user has with properties each verification has")
+        .array()
+        .items(joi.object())
+        .description("list of verification objects user has with properties each verification has"),
+      auraEvaluations: joi.array().items(
+        joi.object({
+          domain: joi.string().required().example("BrightID"),
+          category: joi.string().example("subject").example("player").example("trainer").example("manager"),
+          evaluation: joi.string().required().example("positive").example("negative"),
+          confidence: joi.number(),
+        })
+      ),
     }),
     invite: joi.object({
       id: joi.string().required().description("unique identifier of invite"),
