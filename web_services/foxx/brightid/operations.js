@@ -248,7 +248,11 @@ function apply(op) {
   op.timestamp = op.blockTime;
   if (op["name"] == "Connect") {
     return db.connect(op);
-  } else if (op["name"] == "Add Group") {
+  }
+  else if (op["name"] == "Evaluate"){
+    return db.evaluate(op);
+  }
+  else if (op["name"] == "Add Group") {
     return db.createGroup(op.group, op.id, op.url, op.type, op.timestamp);
   } else if (op["name"] == "Remove Group") {
     return db.deleteGroup(op.group, op.id, op.timestamp);
