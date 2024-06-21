@@ -184,18 +184,15 @@ describe("operations", function () {
 
   it('should be able to make an aura evaluation (`Evaluate`)', function () {
     const timestamp = Date.now();
-    const groupId = db.userMemberships(u1.id)[0].id;
-    db.addMembership(groupId, u2.id, Date.now());
-    db.groupMembers(groupId).should.include(u2.id);
-    confidence = Math.random();
     const op = {
       v: 6,
       name: "Evaluate",
       evaluator: u1.id,
       evaluated: u2.id,
       evaluation: "positive",
+      domain: "BrightID",
       category: "subject",
-      confidence,
+      confidence: 2.0,
       timestamp,
     };
     const message = getMessage(op);
@@ -204,10 +201,10 @@ describe("operations", function () {
     );
     apply(op);
     const conn = connectionsColl.firstExample({
-      _from: "users/" + u2.id,
-      _to: "users/" + u1.id,
+      _from: "users/" + u1.id,
+      _to: "users/" + u2.id,
     });
-    conn.auraEvaluations[0].confidence.should.equal(confidence);
+    conn.auraEvaluations[0].confidence.should.equal(2.0);
   });
 
   it('should be able to "Add Group"', function () {
