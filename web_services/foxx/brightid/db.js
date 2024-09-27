@@ -171,6 +171,7 @@ function evaluate(op){
     category,
     evaluation,
     confidence,
+    modified: timestamp,
   };
 
   var auraEvaluations;
@@ -178,8 +179,7 @@ function evaluate(op){
   if(conn){
     auraEvaluations = upsertAuraEval(newEval, conn.auraEvaluations);
     connectionsColl.update(conn, {
-      auraEvaluations,
-      timestamp,
+      auraEvaluations
     });
   }
   else {
