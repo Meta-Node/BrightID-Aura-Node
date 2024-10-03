@@ -205,7 +205,7 @@ def verify(block):
             let score = sum(impacts[*].impact)
             
             let level = (
-                score >= 2000000 ? 2 :
+                score >= 1000000 ? 2 :
                 score >= 500000 ? 1 :
                 score >= 0 ? 0 : -1
             )
@@ -290,13 +290,13 @@ def verify(block):
             let score = sum(impacts[*].impact)
             
             let level = (
-                score >= 75000000 and (
+                score >= 3000000 and (
                     count(impacts[* filter CURRENT.level >= 2 and CURRENT.confidence >=3]) >= 1 or
                     count(impacts[* filter CURRENT.level >= 2 and CURRENT.confidence >=2]) >= 2
                 ) ? 3 :
-                score >= 20000000 and
+                score >= 2000000 and
                     count(impacts[* filter CURRENT.level >= 1 and CURRENT.confidence >=2]) >= 1 ? 2 :
-                score >= 5000000 ? 1 :
+                score >= 1000000 ? 1 :
                 score >= 0 ? 0 : -1
             )
                     
