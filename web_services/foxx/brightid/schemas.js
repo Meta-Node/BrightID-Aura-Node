@@ -30,7 +30,7 @@ const operations = {
       .string()
       .valid("spammer", "fake", "duplicate", "deceased", "replaced", "other")
       .description(
-        "for reported level, the reason for reporting the user specificed by id2"
+        "the reason for reporting the user specified by id2"
       ),
     replacedWith: joi
       .string()
@@ -42,6 +42,35 @@ const operations = {
       .description(
         "brightid + | + timestamp signed by the reported user to prove that he requested the connection"
       ),
+  },
+  Evaluate: {
+    evaluator: joi
+      .string()
+      .required()
+      .description("BrightID of the evaluator"),
+    evaluated: joi
+      .string()
+      .required()
+      .description("BrightID of the person evaluated"),
+    evaluation: joi
+      .string()
+      .required()
+      .example("positive").example("negative"),
+    domain: joi
+      .string()
+      .required()
+      .example("BrightID"),
+    category: joi
+      .string()
+      .description("Within the domain, the category of the evaluated person or target")
+      .example("subject").example("player").example("trainer").example("manager")
+      .default("subject"),
+    confidence: joi
+      .number(),
+    sig: joi
+      .string()
+      .required()
+      .description("deterministic json representation of operation object signed by the evaluator"),
   },
   "Add Group": {
     group: joi.string().required().description("the unique id of the group"),
@@ -268,7 +297,7 @@ const operations = {
       .string()
       .required()
       .description(
-        "brightid of the member whom is being granted administratorship of the group"
+        "brightid of the member who is becoming an admin"
       ),
     group: joi.string().required().description("the unique id of the group"),
     sig: joi
@@ -456,6 +485,18 @@ schemas = Object.assign(
         .string()
         .valid("spammer", "fake", "duplicate", "deceased", "replaced", "other")
         .description("for reported level, the reason for reporting"),
+      verifications: joi
+        .array()
+        .items(joi.object())
+        .description("list of verification objects user has with properties each verification has"),
+      auraEvaluations: joi.array().items(
+        joi.object({
+          domain: joi.string().required().example("BrightID"),
+          category: joi.string().example("subject").example("player").example("trainer").example("manager"),
+          evaluation: joi.string().required().example("positive").example("negative"),
+          confidence: joi.number(),
+        })
+      ),
     }),
     invite: joi.object({
       id: joi.string().required().description("unique identifier of invite"),
@@ -829,7 +870,7 @@ schemas = Object.assign(
         url: joi.string().required().description("url of the group"),
         info: joi
           .string()
-          .description("URL of a documnet that contains info about the group"),
+          .description("URL of a document that contains info about the group"),
         timestamp: joi
           .number()
           .required()

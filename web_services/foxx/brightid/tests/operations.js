@@ -182,6 +182,31 @@ describe("operations", function () {
     conn.requestProof.should.equal(requestProof);
   });
 
+  it('should be able to make an aura evaluation (`Evaluate`)', function () {
+    const timestamp = Date.now();
+    const op = {
+      v: 6,
+      name: "Evaluate",
+      evaluator: u1.id,
+      evaluated: u2.id,
+      evaluation: "positive",
+      domain: "BrightID",
+      category: "subject",
+      confidence: 2.0,
+      timestamp,
+    };
+    const message = getMessage(op);
+    op.sig = uInt8ArrayToB64(
+      Object.values(nacl.sign.detached(strToUint8Array(message), u1.secretKey))
+    );
+    apply(op);
+    const conn = connectionsColl.firstExample({
+      _from: "users/" + u1.id,
+      _to: "users/" + u2.id,
+    });
+    conn.auraEvaluations[0].confidence.should.equal(2.0);
+  });
+
   it('should be able to "Add Group"', function () {
     const timestamp = Date.now();
     const type = "general";
