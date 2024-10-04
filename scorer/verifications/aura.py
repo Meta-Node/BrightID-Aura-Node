@@ -380,11 +380,11 @@ def verify(block):
             let score = sum(impacts[*].impact)
             
             let level = (
-                score >= 450000000 and (
+                score >= 150000000 and (
                     count(impacts[* filter CURRENT.level >= 3 and CURRENT.confidence >=3]) >= 1 or
                     count(impacts[* filter CURRENT.level >= 3 and CURRENT.confidence >=2]) >= 2
                 ) ? 4 :
-                score >= 150000000 and (
+                score >= 100000000 and (
                     count(impacts[* filter CURRENT.level >= 2 and CURRENT.confidence >=3]) >= 1 or
                     count(impacts[* filter CURRENT.level >= 2 and CURRENT.confidence >=2]) >= 2
                 ) ? 3 :
