@@ -198,7 +198,7 @@ def verify(block):
                     score: evaluator.score,
                     confidence: eval.confidence,
                     impact: eval.confidence *
-                            evaluator.score *
+                            max([evaluator.score , 0]) *
                             (eval.evaluation == "positive" ? 1 : -1 * @flaggingMultiplier)
                 }
         
@@ -283,7 +283,7 @@ def verify(block):
                     score: evaluator.score,
                     confidence: eval.confidence,
                     impact: eval.confidence *
-                            evaluator.score *
+                            max([evaluator.score , 0]) *
                             (eval.evaluation == "positive" ? 1 : -1 * @flaggingMultiplier)
                 }
         
@@ -373,7 +373,7 @@ def verify(block):
                     score: evaluator.score,
                     confidence: eval.confidence,
                     impact: eval.confidence *
-                            evaluator.score *
+                            max([evaluator.score , 0]) *
                             (eval.evaluation == "positive" ? 1 : -1 * @flaggingMultiplier)
                 }
         
