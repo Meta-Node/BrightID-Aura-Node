@@ -163,11 +163,11 @@ function evaluate(op) {
     return evals;
   }
 
-  if (!usersColl.exists(key1)) {
+  if (!usersColl.exists(key2)) {
     usersColl.insert({
       signingKeys: [],
       createdAt: timestamp,
-      _key: key1,
+      _key: key2,
     });
   }
 
