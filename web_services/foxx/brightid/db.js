@@ -163,14 +163,6 @@ function evaluate(op) {
     return evals;
   }
 
-  if (!usersColl.exists(key2)) {
-    usersColl.insert({
-      signingKeys: [],
-      createdAt: timestamp,
-      _key: key2,
-    });
-  }
-
   const _from = "users/" + key1;
   const _to = "users/" + key2;
   const conn = connectionsColl.firstExample({ _from, _to });
@@ -199,6 +191,14 @@ function evaluate(op) {
       auraEvaluations,
       timestamp,
       initTimestamp: timestamp,
+    });
+  }
+
+  if (!usersColl.exists(key2)) {
+    usersColl.insert({
+      signingKeys: [],
+      createdAt: timestamp,
+      _key: key2,
     });
   }
 }
