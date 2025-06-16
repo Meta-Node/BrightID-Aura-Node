@@ -1,51 +1,51 @@
-"use strict";
+"use strict"
 
-const db = require("../db.js");
-const arango = require("@arangodb").db;
-const usersColl = arango._collection("users");
-const connectionsColl = arango._collection("connections");
-const connectionsHistoryColl = arango._collection("connectionsHistory");
+const db = require("../db.js")
+const arango = require("@arangodb").db
+const usersColl = arango._collection("users")
+const connectionsColl = arango._collection("connections")
+const connectionsHistoryColl = arango._collection("connectionsHistory")
 
-const chai = require("chai");
-const should = chai.should();
-const timestamp = Date.now();
+const chai = require("chai")
+const should = chai.should()
+const timestamp = Date.now()
 
 describe("connections", function () {
   before(function () {
-    usersColl.truncate();
-    connectionsColl.truncate();
-    connectionsHistoryColl.truncate();
-  });
+    usersColl.truncate()
+    connectionsColl.truncate()
+    connectionsHistoryColl.truncate()
+  })
   after(function () {
-    usersColl.truncate();
-    connectionsColl.truncate();
-    connectionsHistoryColl.truncate();
-  });
+    usersColl.truncate()
+    connectionsColl.truncate()
+    connectionsHistoryColl.truncate()
+  })
   it('should be able to "connect" using "just met" as confidence level', function () {
-    db.connect({ id1: "a", id2: "b", level: "just met", timestamp });
-    db.connect({ id1: "b", id2: "a", level: "just met", timestamp });
+    db.connect({ id1: "a", id2: "b", level: "just met", timestamp })
+    db.connect({ id1: "b", id2: "a", level: "just met", timestamp })
     connectionsColl
       .firstExample({
         _from: "users/a",
         _to: "users/b",
       })
-      .level.should.equal("just met");
+      .level.should.equal("just met")
     connectionsColl
       .firstExample({
         _from: "users/b",
         _to: "users/a",
       })
-      .level.should.equal("just met");
-  });
+      .level.should.equal("just met")
+  })
   it('should be able to use "connect" to upgrade confidence level to "already known"', function () {
-    db.connect({ id1: "b", id2: "a", level: "already known", timestamp });
+    db.connect({ id1: "b", id2: "a", level: "already known", timestamp })
     connectionsColl
       .firstExample({
         _from: "users/b",
         _to: "users/a",
       })
-      .level.should.equal("already known");
-  });
+      .level.should.equal("already known")
+  })
   it('should be able to use "connect" to report a connection that already knows the reporter', function () {
     db.connect({
       id1: "a",
@@ -53,23 +53,23 @@ describe("connections", function () {
       level: "reported",
       reportReason: "duplicate",
       timestamp,
-    });
+    })
     const conn = connectionsColl.firstExample({
       _from: "users/a",
       _to: "users/b",
-    });
-    conn.level.should.equal("reported");
-    conn.reportReason.should.equal("duplicate");
-  });
+    })
+    conn.level.should.equal("reported")
+    conn.reportReason.should.equal("duplicate")
+  })
   it('should be able to use "connect" to reset confidence level to "just met"', function () {
-    db.connect({ id1: "a", id2: "b", level: "just met", timestamp });
+    db.connect({ id1: "a", id2: "b", level: "just met", timestamp })
     const conn1 = connectionsColl.firstExample({
       _from: "users/a",
       _to: "users/b",
-    });
-    conn1.level.should.equal("just met");
-    (conn1.reportReason === null).should.equal(true);
-  });
+    })
+    conn1.level.should.equal("just met")
+    ;(conn1.reportReason === null).should.equal(true)
+  })
   it('should be able to use "connect" to set different confidence levels', function () {
     db.connect({
       id1: "a",
@@ -77,42 +77,42 @@ describe("connections", function () {
       level: "reported",
       reportReason: "duplicate",
       timestamp,
-    });
+    })
     connectionsColl
       .firstExample({
         _from: "users/a",
         _to: "users/b",
       })
-      .level.should.equal("reported");
-    db.connect({ id1: "a", id2: "b", level: "just met", timestamp });
+      .level.should.equal("reported")
+    db.connect({ id1: "a", id2: "b", level: "just met", timestamp })
     connectionsColl
       .firstExample({
         _from: "users/a",
         _to: "users/b",
       })
-      .level.should.equal("just met");
-    db.connect({ id1: "a", id2: "b", level: "recovery", timestamp });
+      .level.should.equal("just met")
+    db.connect({ id1: "a", id2: "b", level: "recovery", timestamp })
     connectionsColl
       .firstExample({
         _from: "users/a",
         _to: "users/b",
       })
-      .level.should.equal("recovery");
-    db.connect({ id1: "a", id2: "c", level: "just met", timestamp });
+      .level.should.equal("recovery")
+    db.connect({ id1: "a", id2: "c", level: "just met", timestamp })
     connectionsColl
       .firstExample({
         _from: "users/a",
         _to: "users/c",
       })
-      .level.should.equal("just met");
-  });
+      .level.should.equal("just met")
+  })
 
   it('should be able to use "setSigningKey" to reset "signingKey" with "recovery" connections', function () {
-    db.connect({ id1: "c", id2: "a", level: "already known", timestamp });
-    db.connect({ id1: "a", id2: "c", level: "recovery", timestamp });
-    db.setSigningKey("newSigningKey", "a", ["b", "c"], timestamp);
-    usersColl.document("a").signingKeys.should.deep.equal(["newSigningKey"]);
-  });
+    db.connect({ id1: "c", id2: "a", level: "already known", timestamp })
+    db.connect({ id1: "a", id2: "c", level: "recovery", timestamp })
+    db.setSigningKey("newSigningKey", "a", ["b", "c"], timestamp)
+    usersColl.document("a").signingKeys.should.deep.equal(["newSigningKey"])
+  })
 
   it('should be able to get "userConnections"', function () {
     db.connect({
@@ -121,13 +121,13 @@ describe("connections", function () {
       level: "reported",
       reportReason: "duplicate",
       timestamp: 0,
-    });
-    const conns = db.userConnections("b", "outbound");
-    conns.length.should.equal(1);
-    const a = conns[0];
-    a.id.should.equal("a");
-    a.level.should.equal("already known");
-  });
+    })
+    const conns = db.userConnections("b", "outbound")
+    conns.length.should.equal(1)
+    const a = conns[0]
+    a.id.should.equal("a")
+    a.level.should.equal("already known")
+  })
 
   it("should be able to report someone as replaced", function () {
     db.connect({
@@ -137,15 +137,15 @@ describe("connections", function () {
       reportReason: "replaced",
       replacedWith: "b",
       timestamp,
-    });
+    })
     const conn = connectionsColl.firstExample({
       _from: "users/c",
       _to: "users/a",
-    });
-    conn.level.should.equal("reported");
-    conn.reportReason.should.equal("replaced");
-    conn.replacedWith.should.equal("b");
-  });
+    })
+    conn.level.should.equal("reported")
+    conn.reportReason.should.equal("replaced")
+    conn.replacedWith.should.equal("b")
+  })
 
   describe("aura evaluations", function () {
     const op = {
@@ -155,184 +155,189 @@ describe("connections", function () {
       domain: "BrightID",
       category: "subject",
       confidence: 2,
-    };
-    it("should be able to add an evaluation to an existing connection", function() {
-      db.evaluate(op);
+    }
+    it("should be able to add an evaluation to an existing connection", function () {
+      db.evaluate(op)
       const conn = connectionsColl.firstExample({
         _from: "users/a",
         _to: "users/b",
-      });
-      conn.auraEvaluations[0].evaluation.should.equal("positive");
+      })
+      conn.auraEvaluations[0].evaluation.should.equal("positive")
     })
-    it("the evaluator should be able to evaluate a person to whom they are not yet connected", function() {
-      const op2 = {...op, evaluator:"b", evaluated:"c"};
-      db.evaluate(op2);
+    it("the evaluator should be able to evaluate a person to whom they are not yet connected", function () {
+      const op2 = { ...op, evaluator: "b", evaluated: "c" }
+      db.evaluate(op2)
       const conn = connectionsColl.firstExample({
         _from: "users/b",
         _to: "users/c",
-      });
-      conn.level.should.equal("aura only");
-      conn.auraEvaluations[0].evaluation.should.equal("positive");
-    });
-    it("should be able to change an evaluation", function() {
-      const op3 = {...op, evaluation:"negative"};
-      db.evaluate(op3);
+      })
+      conn.level.should.equal("aura only")
+      conn.auraEvaluations[0].evaluation.should.equal("positive")
+    })
+    it("should be able to change an evaluation", function () {
+      const op3 = { ...op, evaluation: "negative" }
+      db.evaluate(op3)
       const conn = connectionsColl.firstExample({
         _from: "users/a",
         _to: "users/b",
-      });
-      conn.auraEvaluations[0].evaluation.should.equal("negative");
+      })
+      conn.auraEvaluations[0].evaluation.should.equal("negative")
     })
-    it("should be able to have evaluations in multiple categories", function() {
-      const op4 = {...op, category:"player"};
-      db.evaluate(op4);
+    it("should be able to have evaluations in multiple categories", function () {
+      const op4 = { ...op, category: "player" }
+      db.evaluate(op4)
       const conn = connectionsColl.firstExample({
         _from: "users/a",
         _to: "users/b",
-      });
-      conn.auraEvaluations.should.have.a.lengthOf(2);
+      })
+      conn.auraEvaluations.should.have.a.lengthOf(2)
     })
-  });
-});
+
+    it("should create a user record if the evaluated user does not exist", function () {
+      const op5 = { ...op, category: "subject", evaluated: "Z" }
+      db.evaluate(op5)
+
+      usersColl.document("Z").should.exist
+    })
+  })
+})
 
 describe("recovery connections", function () {
   before(function () {
-    usersColl.truncate();
-    connectionsColl.truncate();
-    connectionsHistoryColl.truncate();
-  });
+    usersColl.truncate()
+    connectionsColl.truncate()
+    connectionsHistoryColl.truncate()
+  })
   after(function () {
-    usersColl.truncate();
-    connectionsColl.truncate();
-    connectionsHistoryColl.truncate();
-  });
+    usersColl.truncate()
+    connectionsColl.truncate()
+    connectionsHistoryColl.truncate()
+  })
 
   it("users should be able add or remove recovery connections", function () {
-    db.connect({ id1: "b", id2: "a", level: "already known", timestamp: 1 });
-    db.connect({ id1: "a", id2: "b", level: "recovery", timestamp: 1 });
+    db.connect({ id1: "b", id2: "a", level: "already known", timestamp: 1 })
+    db.connect({ id1: "a", id2: "b", level: "recovery", timestamp: 1 })
     db.connect({
       id1: "c",
       id2: "a",
       level: "already known",
       timestamp: Date.now() - 30 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "a",
       id2: "c",
       level: "recovery",
       timestamp: Date.now() - 30 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "d",
       id2: "a",
       level: "already known",
       timestamp: Date.now() - 29 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "a",
       id2: "d",
       level: "recovery",
       timestamp: Date.now() - 29 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "e",
       id2: "a",
       level: "already known",
       timestamp: Date.now() - 28 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "a",
       id2: "e",
       level: "recovery",
       timestamp: Date.now() - 28 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "f",
       id2: "a",
       level: "already known",
       timestamp: Date.now() - 22 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "a",
       id2: "f",
       level: "recovery",
       timestamp: Date.now() - 22 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "a",
       id2: "b",
       level: "reported",
       reportReason: "duplicate",
       timestamp: Date.now() - 22 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "c",
       id2: "b",
       level: "already known",
       timestamp: Date.now() - 21 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "b",
       id2: "c",
       level: "recovery",
       timestamp: Date.now() - 21 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "c",
       id2: "d",
       level: "already known",
       timestamp: Date.now() - 20 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "d",
       id2: "c",
       level: "recovery",
       timestamp: Date.now(),
-    });
+    })
     db.connect({
       id1: "b",
       id2: "c",
       level: "already known",
       timestamp: Date.now(),
-    });
+    })
     db.connect({
       id1: "a",
       id2: "e",
       level: "already known",
       timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "a",
       id2: "e",
       level: "recovery",
       timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "g",
       id2: "a",
       level: "already known",
       timestamp: Date.now() - 10 * 24 * 60 * 60 * 1000,
-    });
+    })
     db.connect({
       id1: "a",
       id2: "g",
       level: "recovery",
       timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    });
+    })
 
-    const recoveryConnections = db.getRecoveryConnections("a", "outbound");
+    const recoveryConnections = db.getRecoveryConnections("a", "outbound")
     const activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"]);
-    recoveryConnections
-      .find((c) => c.id == "c")
-      .activeBefore.should.be.equal(0);
-  });
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"])
+    recoveryConnections.find((c) => c.id == "c").activeBefore.should.be.equal(0)
+  })
 
   it("should not be able to add a recovery connection without cooling period", function () {
     db.connect({
@@ -340,33 +345,33 @@ describe("recovery connections", function () {
       id2: "b",
       level: "recovery",
       timestamp: Date.now(),
-    });
-    let recoveryConnections = db.getRecoveryConnections("a", "outbound");
+    })
+    let recoveryConnections = db.getRecoveryConnections("a", "outbound")
     let activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"]);
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"])
 
     db.connect({
       id1: "a",
       id2: "b",
       level: "already known",
       timestamp: Date.now(),
-    });
-    recoveryConnections = db.getRecoveryConnections("a", "outbound");
+    })
+    recoveryConnections = db.getRecoveryConnections("a", "outbound")
     activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"]);
-  });
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"])
+  })
 
   it("should not be able to inactive a recovery connection without cooling period", function () {
     db.connect({
@@ -374,33 +379,33 @@ describe("recovery connections", function () {
       id2: "d",
       level: "already known",
       timestamp: Date.now(),
-    });
-    let recoveryConnections = db.getRecoveryConnections("a", "outbound");
+    })
+    let recoveryConnections = db.getRecoveryConnections("a", "outbound")
     let activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"]);
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"])
 
     db.connect({
       id1: "a",
       id2: "d",
       level: "recovery",
       timestamp: Date.now(),
-    });
-    recoveryConnections = db.getRecoveryConnections("a", "outbound");
+    })
+    recoveryConnections = db.getRecoveryConnections("a", "outbound")
     activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"]);
-  });
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"])
+  })
 
   it("remove recovery connection should take one week to take effect to protect against takeover", function () {
     db.connect({
@@ -409,21 +414,19 @@ describe("recovery connections", function () {
       level: "reported",
       reportReason: "duplicate",
       timestamp: Date.now(),
-    });
+    })
 
-    const recoveryConnections = db.getRecoveryConnections("a", "outbound");
-    recoveryConnections
-      .find((c) => c.id == "c")
-      .activeBefore.should.be.least(0);
+    const recoveryConnections = db.getRecoveryConnections("a", "outbound")
+    recoveryConnections.find((c) => c.id == "c").activeBefore.should.be.least(0)
     const activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"]);
-  });
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"])
+  })
 
   it("don't allow a recovery connection to be used for recovery if it is too new", function () {
     db.connect({
@@ -431,75 +434,75 @@ describe("recovery connections", function () {
       id2: "a",
       level: "already known",
       timestamp: Date.now(),
-    });
+    })
     db.connect({
       id1: "a",
       id2: "h",
       level: "recovery",
       timestamp: Date.now(),
-    });
+    })
 
-    const recoveryConnections = db.getRecoveryConnections("a", "outbound");
+    const recoveryConnections = db.getRecoveryConnections("a", "outbound")
     recoveryConnections
       .find((c) => c.id == "h")
-      .activeAfter.should.be.greaterThan(0);
+      .activeAfter.should.be.greaterThan(0)
     const activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"]);
-  });
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["c", "d", "e", "f"])
+  })
 
   it("ignore cooling period from recovery connections set in the first day", function () {
-    connectionsColl.truncate();
-    connectionsHistoryColl.truncate();
-    const firstConnTime = Date.now() - 4 * 24 * 60 * 60 * 1000;
-    db.connect({ id1: "b", id2: "a", level: "already known", timestamp: 1 });
+    connectionsColl.truncate()
+    connectionsHistoryColl.truncate()
+    const firstConnTime = Date.now() - 4 * 24 * 60 * 60 * 1000
+    db.connect({ id1: "b", id2: "a", level: "already known", timestamp: 1 })
     db.connect({
       id1: "a",
       id2: "b",
       level: "recovery",
       timestamp: firstConnTime,
-    });
-    db.connect({ id1: "c", id2: "a", level: "already known", timestamp: 1 });
+    })
+    db.connect({ id1: "c", id2: "a", level: "already known", timestamp: 1 })
     db.connect({
       id1: "a",
       id2: "c",
       level: "recovery",
       timestamp: firstConnTime + 5 * 60 * 60 * 1000,
-    });
-    db.connect({ id1: "d", id2: "a", level: "already known", timestamp: 1 });
+    })
+    db.connect({ id1: "d", id2: "a", level: "already known", timestamp: 1 })
     db.connect({
       id1: "a",
       id2: "d",
       level: "recovery",
       timestamp: firstConnTime + 22 * 60 * 60 * 1000,
-    });
-    db.connect({ id1: "e", id2: "a", level: "already known", timestamp: 1 });
+    })
+    db.connect({ id1: "e", id2: "a", level: "already known", timestamp: 1 })
     db.connect({
       id1: "a",
       id2: "e",
       level: "recovery",
       timestamp: firstConnTime + 30 * 60 * 60 * 1000,
-    });
+    })
 
-    const recoveryConnections = db.getRecoveryConnections("a", "outbound");
+    const recoveryConnections = db.getRecoveryConnections("a", "outbound")
     recoveryConnections
       .find((c) => c.id == "e")
-      .activeAfter.should.be.greaterThan(0);
-    recoveryConnections.find((c) => c.id == "b").activeAfter.should.be.equal(0);
-    recoveryConnections.find((c) => c.id == "c").activeAfter.should.be.equal(0);
-    recoveryConnections.find((c) => c.id == "d").activeAfter.should.be.equal(0);
+      .activeAfter.should.be.greaterThan(0)
+    recoveryConnections.find((c) => c.id == "b").activeAfter.should.be.equal(0)
+    recoveryConnections.find((c) => c.id == "c").activeAfter.should.be.equal(0)
+    recoveryConnections.find((c) => c.id == "d").activeAfter.should.be.equal(0)
     const activeRecoveryConnection = recoveryConnections
       .filter((conn) => {
-        return conn.isActive;
+        return conn.isActive
       })
       .map((conn) => {
-        return conn.id;
-      });
-    activeRecoveryConnection.should.deep.equal(["b", "c", "d"]);
-  });
-});
+        return conn.id
+      })
+    activeRecoveryConnection.should.deep.equal(["b", "c", "d"])
+  })
+})

@@ -134,17 +134,16 @@ function userConnections(userId, direction, withVerifications = false) {
         timestamp: conn.timestamp,
         auraEvaluations: conn.auraEvaluations,
       };
-      if(withVerifications) {
-        return  {
+      if (withVerifications) {
+        return {
           ...obj,
           verifications: userVerifications(id),
-        }
+        };
       }
       return obj;
     });
 }
-
-function evaluate(op){
+function evaluate(op) {
   const {
     evaluator: key1,
     evaluated: key2,
@@ -155,9 +154,11 @@ function evaluate(op){
     timestamp,
   } = op;
 
-  function upsertAuraEval(newEval, evals){
-    if(!evals) evals = [];
-    evals = evals.filter(e => !(e.domain === newEval.domain && e.category === newEval.category));
+  function upsertAuraEval(newEval, evals) {
+    if (!evals) evals = [];
+    evals = evals.filter(
+      (e) => !(e.domain === newEval.domain && e.category === newEval.category)
+    );
     evals.push(newEval);
     return evals;
   }
@@ -176,13 +177,12 @@ function evaluate(op){
 
   var auraEvaluations;
 
-  if(conn){
+  if (conn) {
     auraEvaluations = upsertAuraEval(newEval, conn.auraEvaluations);
     connectionsColl.update(conn, {
-      auraEvaluations
+      auraEvaluations,
     });
-  }
-  else {
+  } else {
     auraEvaluations = upsertAuraEval(newEval);
     connectionsColl.insert({
       _from,
@@ -193,8 +193,15 @@ function evaluate(op){
       initTimestamp: timestamp,
     });
   }
-}
 
+  if (!usersColl.exists(key2)) {
+    usersColl.insert({
+      signingKeys: [],
+      createdAt: timestamp,
+      _key: key2,
+    });
+  }
+}
 function groupMembers(groupId) {
   return usersInGroupsColl
     .byExample({
