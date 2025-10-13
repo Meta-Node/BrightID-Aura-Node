@@ -233,7 +233,7 @@ const handlers = {
 
     const results = []
 
-    let verifications = db.userVerifications(id)
+    let verifications = db.userVerifications(userId)
     verifications = _.keyBy(verifications, (v) => v.name)
 
     for (let verification of app.verifications) {
@@ -247,24 +247,20 @@ const handlers = {
         }
         verified = expr.evaluate(verifications)
       } catch (err) {
-        throw new errors.InvalidExpressionError(
-          app.name,
-          params.verification,
-          err
-        )
-      }
-      if (!verified) {
-        throw new errors.NotVerifiedError(params.app, params.verification)
+        throw new errors.InvalidExpressionError(app.name, verification, err)
       }
 
       const verificationHash = crypto.sha256(verification)
-      let doc = {
-        uid: Math.random().toString(36).substr(2, 10),
-        app: appKey,
-        appId: userId,
-        verification,
-        roundedTimestamp,
-      }
+
+      let doc = verified
+        ? {
+            uid: Math.random().toString(36).substr(2, 10),
+            app: appKey,
+            appId: userId,
+            verification,
+            roundedTimestamp,
+          }
+        : null
 
       const unique = doc ? true : false
       const result = {
@@ -470,6 +466,7 @@ const handlers = {
       app: appKey,
       appId: appUserId,
     })
+
     const development = module.context.configuration.development
     if (!(development && pseudoVerification) && !appUserIdExists) {
       throw new errors.AppUserIdNotFoundError(appUserId)
