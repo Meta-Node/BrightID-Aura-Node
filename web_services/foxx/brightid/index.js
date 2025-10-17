@@ -36,6 +36,112 @@ const appIdsColl = arango._collection('appIds');
 
 const MAX_OP_SIZE = 2000;
 
+function signVerification(
+  signed,
+  app,
+  appUserId,
+  verificationHash,
+  timestamp,
+  includeHash,
+  verification,
+  appKey
+) {
+  const result = {
+    unique: true,
+    app: appKey,
+    appUserId,
+    verification,
+    sig: '',
+    timestamp,
+  };
+
+  if (includeHash) {
+    result['verificationHash'] = verificationHash;
+  }
+
+  let sig, publicKey;
+
+  if (signed == 'nacl') {
+    const naclKeyPair = getNaclKeyPair();
+    if (!naclKeyPair.privateKey) {
+      throw new errors.NaclKeyNotSetError();
+    }
+
+    let message = appKey + ',' + appUserId;
+    if (includeHash) {
+      message = message + ',' + verificationHash;
+    }
+    if (timestamp) {
+      message = message + ',' + timestamp;
+    }
+    publicKey = naclKeyPair.publicKey;
+    sig = uInt8ArrayToB64(
+      Object.values(
+        nacl.sign.detached(strToUint8Array(message), naclKeyPair.privateKey)
+      )
+    );
+  } else if (signed == 'eth') {
+    const ethKeyPair = getEthKeyPair();
+    if (!ethKeyPair.privateKey) {
+      throw new errors.EthKeyNotSetError();
+    }
+
+    let message, h;
+    if (app.idsAsHex) {
+      message = pad32(appKey) + addressToBytes32(appUserId);
+    } else {
+      if (appUserId.length > 32) {
+        throw new errors.UnsingableAppUserIdError(appUserId);
+      }
+      message = pad32(appKey) + pad32(appUserId);
+    }
+    message = Buffer.from(message, 'binary').toString('hex');
+    if (includeHash) {
+      message += verificationHash;
+    }
+    if (timestamp) {
+      const t = timestamp.toString(16);
+      message += '0'.repeat(64 - t.length) + t;
+    }
+    h = new Uint8Array(
+      createKeccakHash('keccak256').update(message, 'hex').digest()
+    );
+    publicKey = ethKeyPair.publicKey;
+    const _sig = secp256k1.ecdsaSign(h, ethKeyPair.privateKey);
+    sig = {
+      r: Buffer.from(Object.values(_sig.signature.slice(0, 32))).toString(
+        'hex'
+      ),
+      s: Buffer.from(Object.values(_sig.signature.slice(32, 64))).toString(
+        'hex'
+      ),
+      v: _sig.recid + 27,
+    };
+  }
+
+  result['sig'] = sig;
+  result['publicKey'] = publicKey;
+
+  return result;
+}
+
+function isVerifiedByVerificationExpr(verification, verifications, app) {
+  let verified;
+  try {
+    let expr = parser.parse(verification);
+    for (let v of expr.variables()) {
+      if (!verifications[v]) {
+        verifications[v] = false;
+      }
+    }
+    verified = expr.evaluate(verifications);
+  } catch (err) {
+    throw new errors.InvalidExpressionError(app.name, verification, err);
+  }
+
+  return verified;
+}
+
 const handlers = {
   operationsPost: function (req, res) {
     const op = req.body;
@@ -237,18 +343,11 @@ const handlers = {
     verifications = _.keyBy(verifications, v => v.name);
 
     for (let verification of app.verifications) {
-      let verified;
-      try {
-        let expr = parser.parse(verification);
-        for (let v of expr.variables()) {
-          if (!verifications[v]) {
-            verifications[v] = false;
-          }
-        }
-        verified = expr.evaluate(verifications);
-      } catch (err) {
-        throw new errors.InvalidExpressionError(app.name, verification, err);
-      }
+      let verified = isVerifiedByVerificationExpr(
+        verification,
+        verifications,
+        app
+      );
 
       const verificationHash = crypto.sha256(verification);
 
@@ -279,68 +378,18 @@ const handlers = {
         continue;
       }
 
-      let sig, publicKey;
-      if (signed == 'nacl') {
-        const naclKeyPair = getNaclKeyPair();
-        if (!naclKeyPair.privateKey) {
-          throw new errors.NaclKeyNotSetError();
-        }
-
-        let message = appKey + ',' + userId;
-        if (includeHash) {
-          message = message + ',' + verificationHash;
-        }
-        if (timestamp) {
-          message = message + ',' + timestamp;
-        }
-        publicKey = naclKeyPair.publicKey;
-        sig = uInt8ArrayToB64(
-          Object.values(
-            nacl.sign.detached(strToUint8Array(message), naclKeyPair.privateKey)
-          )
-        );
-      } else if (signed == 'eth') {
-        const ethKeyPair = getEthKeyPair();
-        if (!ethKeyPair.privateKey) {
-          throw new errors.EthKeyNotSetError();
-        }
-
-        let message, h;
-        if (app.idsAsHex) {
-          message = pad32(appKey) + addressToBytes32(userId);
-        } else {
-          if (userId.length > 32) {
-            throw new errors.UnsingableAppUserIdError(userId);
-          }
-          message = pad32(appKey) + pad32(userId);
-        }
-        message = Buffer.from(message, 'binary').toString('hex');
-        if (includeHash) {
-          message += verificationHash;
-        }
-        if (timestamp) {
-          const t = timestamp.toString(16);
-          message += '0'.repeat(64 - t.length) + t;
-        }
-        h = new Uint8Array(
-          createKeccakHash('keccak256').update(message, 'hex').digest()
-        );
-        publicKey = ethKeyPair.publicKey;
-        const _sig = secp256k1.ecdsaSign(h, ethKeyPair.privateKey);
-        sig = {
-          r: Buffer.from(Object.values(_sig.signature.slice(0, 32))).toString(
-            'hex'
-          ),
-          s: Buffer.from(Object.values(_sig.signature.slice(32, 64))).toString(
-            'hex'
-          ),
-          v: _sig.recid + 27,
-        };
-      }
-
-      result['sig'] = sig;
-      result['publicKey'] = publicKey;
-      results.push(result);
+      results.push(
+        signVerification(
+          signed,
+          app,
+          userId,
+          verificationHash,
+          timestamp,
+          includeHash,
+          verification,
+          appKey
+        )
+      );
     }
 
     res.send({ data: results });
@@ -371,22 +420,13 @@ const handlers = {
 
     let verifications = db.userVerifications(id);
     verifications = _.keyBy(verifications, v => v.name);
-    let verified;
-    try {
-      let expr = parser.parse(params.verification);
-      for (let v of expr.variables()) {
-        if (!verifications[v]) {
-          verifications[v] = false;
-        }
-      }
-      verified = expr.evaluate(verifications);
-    } catch (err) {
-      throw new errors.InvalidExpressionError(
-        app.name,
-        params.verification,
-        err
-      );
-    }
+
+    let verified = isVerifiedByVerificationExpr(
+      params.verification,
+      verifications,
+      app
+    );
+
     if (!verified) {
       throw new errors.NotVerifiedError(params.app, params.verification);
     }
@@ -524,69 +564,18 @@ const handlers = {
         continue;
       }
 
-      // sign and return the verification
-      let sig, publicKey;
-      if (signed == 'nacl') {
-        const naclKeyPair = getNaclKeyPair();
-        if (!naclKeyPair.privateKey) {
-          throw new errors.NaclKeyNotSetError();
-        }
-
-        let message = appKey + ',' + appUserId;
-        if (includeHash) {
-          message = message + ',' + verificationHash;
-        }
-        if (timestamp) {
-          message = message + ',' + timestamp;
-        }
-        publicKey = naclKeyPair.publicKey;
-        sig = uInt8ArrayToB64(
-          Object.values(
-            nacl.sign.detached(strToUint8Array(message), naclKeyPair.privateKey)
-          )
-        );
-      } else if (signed == 'eth') {
-        const ethKeyPair = getEthKeyPair();
-        if (!ethKeyPair.privateKey) {
-          throw new errors.EthKeyNotSetError();
-        }
-
-        let message, h;
-        if (app.idsAsHex) {
-          message = pad32(appKey) + addressToBytes32(appUserId);
-        } else {
-          if (appUserId.length > 32) {
-            throw new errors.UnsingableAppUserIdError(appUserId);
-          }
-          message = pad32(appKey) + pad32(appUserId);
-        }
-        message = Buffer.from(message, 'binary').toString('hex');
-        if (includeHash) {
-          message += verificationHash;
-        }
-        if (timestamp) {
-          const t = timestamp.toString(16);
-          message += '0'.repeat(64 - t.length) + t;
-        }
-        h = new Uint8Array(
-          createKeccakHash('keccak256').update(message, 'hex').digest()
-        );
-        publicKey = ethKeyPair.publicKey;
-        const _sig = secp256k1.ecdsaSign(h, ethKeyPair.privateKey);
-        sig = {
-          r: Buffer.from(Object.values(_sig.signature.slice(0, 32))).toString(
-            'hex'
-          ),
-          s: Buffer.from(Object.values(_sig.signature.slice(32, 64))).toString(
-            'hex'
-          ),
-          v: _sig.recid + 27,
-        };
-      }
-
-      result['sig'] = sig;
-      result['publicKey'] = publicKey;
-      results.push(result);
+      results.push(
+        signVerification(
+          signed,
+          app,
+          appUserId,
+          verificationHash,
+          timestamp,
+          includeHash,
+          verification,
+          appKey
+        )
+      );
     }
     res.send({ data: results });
   },
@@ -872,43 +861,6 @@ router
     'Clients use this endpoint to add unblinded signature for an appUserId to the node to be queried by apps'
   )
   .response(null);
-
-router
-  .get('/verifications/BrightID/:app/:brightId', handlers.createSignatureById)
-  .pathParam(
-    'app',
-    joi.string().required().description('the app that user is verified for')
-  )
-  .pathParam('brightId', joi.string().required().description('the id of user'))
-  .queryParam(
-    'signed',
-    joi
-      .string()
-      .description(
-        'the value will be eth or nacl to indicate the type of signature returned'
-      )
-  )
-  .queryParam(
-    'timestamp',
-    joi
-      .string()
-      .description(
-        'request a timestamp of the specified format to be added to the response. Accepted values: "seconds", "milliseconds"'
-      )
-  )
-  .queryParam(
-    'includeHash',
-    joi
-      .boolean()
-      .default(true)
-      .description("false if the requester doesn't want the hash included")
-  )
-  .summary('Gets a signed verification by brightid')
-  .description(
-    'used by aura verified to get a verification for non functional brightids'
-  )
-  .response(schemas.verificationsGetResponse)
-  .error(404, 'brightid not found');
 
 router
   .get('/verifications/:app/:appUserId/', handlers.verificationsGet)
