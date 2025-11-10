@@ -1,19 +1,19 @@
-"use strict";
+'use strict';
 
-const stringify = require("fast-json-stable-stringify");
-const arango = require("@arangodb").db;
-const request = require("@arangodb/request");
-const errors = require("../errors.js");
-const WISchnorrClient = require("../WISchnorrClient");
-const db = require("../db");
+const stringify = require('fast-json-stable-stringify');
+const arango = require('@arangodb').db;
+const request = require('@arangodb/request');
+const errors = require('../errors.js');
+const WISchnorrClient = require('../WISchnorrClient');
+const db = require('../db');
 const {
   b64ToUrlSafeB64,
   uInt8ArrayToB64,
   strToUint8Array,
   b64ToUint8Array,
-} = require("../encoding");
-const chai = require("chai");
-const nacl = require("tweetnacl");
+} = require('../encoding');
+const chai = require('chai');
+const nacl = require('tweetnacl');
 nacl.setPRNG(function (x, n) {
   for (let i = 0; i < n; i++) {
     x[i] = Math.floor(Math.random() * 256);
@@ -23,13 +23,13 @@ nacl.setPRNG(function (x, n) {
 const should = chai.should();
 const { baseUrl } = module.context;
 
-const usersColl = arango._collection("users");
-const appsColl = arango._collection("apps");
-const variablesColl = arango._collection("variables");
-const sponsorshipsColl = arango._collection("sponsorships");
-const verificationsColl = arango._collection("verifications");
-const cachedParamsColl = arango._collection("cachedParams");
-const appIdsColl = arango._collection("appIds");
+const usersColl = arango._collection('users');
+const appsColl = arango._collection('apps');
+const variablesColl = arango._collection('variables');
+const sponsorshipsColl = arango._collection('sponsorships');
+const verificationsColl = arango._collection('verifications');
+const cachedParamsColl = arango._collection('cachedParams');
+const appIdsColl = arango._collection('appIds');
 
 const u1 = nacl.sign.keyPair();
 u1.signingKey = uInt8ArrayToB64(Object.values(u1.publicKey));
@@ -42,16 +42,16 @@ u2.id = b64ToUrlSafeB64(u2.signingKey);
 const verificationExpirationLength = 1000000;
 
 const app = {
-  _key: "idchain",
+  _key: 'idchain',
   verificationExpirationLength,
-  verifications: ["BrightID", "SeedConnected", "SeedConnectedWithFriend"],
+  verifications: ['BrightID', 'SeedConnected', 'SeedConnectedWithFriend'],
   usingBlindSig: true,
   idsAsHex: true,
 };
 
 let info;
 
-describe("verifications", function () {
+describe('verifications', function () {
   before(function () {
     usersColl.truncate();
     appsColl.truncate();
@@ -65,23 +65,23 @@ describe("verifications", function () {
       _from: `users/${u1.id}`,
       _to: `apps/${app._key}`,
     });
-    if (!variablesColl.exists("LAST_BLOCK")) {
+    if (!variablesColl.exists('LAST_BLOCK')) {
       variablesColl.insert({
-        _key: "LAST_BLOCK",
+        _key: 'LAST_BLOCK',
         value: 0,
       });
     }
     const hashes = JSON.parse(
-      variablesColl.document("VERIFICATIONS_HASHES").hashes
+      variablesColl.document('VERIFICATIONS_HASHES').hashes
     );
     const block = Math.max(...Object.keys(hashes));
     verificationsColl.insert({
       user: u1.id,
-      name: "BrightID",
+      name: 'BrightID',
       block,
     });
     verificationsColl.insert({
-      name: "SeedConnected",
+      name: 'SeedConnected',
       user: u1.id,
       rank: 3,
       block,
@@ -96,12 +96,12 @@ describe("verifications", function () {
     appIdsColl.truncate();
   });
 
-  it("should not be able to get WI-Schnorr server response for unverified users", function () {
+  it('should not be able to get WI-Schnorr server response for unverified users', function () {
     const client = new WISchnorrClient(db.getState().wISchnorrPublic);
     let resp = request.get(`${baseUrl}/apps/${app._key}`);
     const vel = resp.json.data.verificationExpirationLength;
     const verifications = resp.json.data.verifications;
-    const appUserId = "0x79af508c9698076bc1c2dfa224f7829e9768b11e";
+    const appUserId = '0x79af508c9698076bc1c2dfa224f7829e9768b11e';
 
     for (const verification of verifications) {
       const info = {
@@ -135,12 +135,12 @@ describe("verifications", function () {
     }
   });
 
-  it("if the user is verified, apps should be able to get a verification signature", function () {
+  it('if the user is verified, apps should be able to get a verification signature', function () {
     const client = new WISchnorrClient(db.getState().wISchnorrPublic);
     let resp = request.get(`${baseUrl}/apps/${app._key}`);
     const vel = resp.json.data.verificationExpirationLength;
     const verifications = resp.json.data.verifications;
-    const appUserId = "0xE8FB09228d1373f931007ca7894a08344B80901c";
+    const appUserId = '0xE8FB09228d1373f931007ca7894a08344B80901c';
 
     for (const verification of verifications) {
       const info = {
@@ -170,7 +170,7 @@ describe("verifications", function () {
       resp = request.get(`${baseUrl}/verifications/blinded/sig/${u1.id}`, {
         qs,
       });
-      if (verification == "SeedConnectedWithFriend") {
+      if (verification == 'SeedConnectedWithFriend') {
         resp.json.errorNum.should.equal(errors.NOT_VERIFIED);
         continue;
       }
@@ -194,15 +194,15 @@ describe("verifications", function () {
 
     resp = request.get(`${baseUrl}/verifications/${app._key}/${appUserId}`, {
       qs: {
-        signed: "eth",
-        timestamp: "seconds",
+        signed: 'eth',
+        timestamp: 'seconds',
       },
       json: true,
     });
     resp.status.should.equal(200);
     for (let v of resp.json.data) {
-      Object.keys(v).should.include("verificationHash");
-      if (v.verification == "SeedConnectedWithFriend") {
+      Object.keys(v).should.include('verificationHash');
+      if (v.verification == 'SeedConnectedWithFriend') {
         v.unique.should.equal(false);
       } else {
         v.unique.should.equal(true);
@@ -213,19 +213,48 @@ describe("verifications", function () {
       `${baseUrl}/verifications/${app._key}/${appUserId.toLowerCase()}`,
       {
         qs: {
-          signed: "nacl",
+          signed: 'nacl',
         },
         json: true,
       }
     );
     resp.status.should.equal(200);
     for (let v of resp.json.data) {
-      Object.keys(v).should.include("verificationHash");
-      if (v.verification == "SeedConnectedWithFriend") {
+      Object.keys(v).should.include('verificationHash');
+      if (v.verification == 'SeedConnectedWithFriend') {
         v.unique.should.equal(false);
       } else {
         v.unique.should.equal(true);
-        const message = v.app + "," + v.appUserId + "," + v.verificationHash;
+        const message = v.app + ',' + v.appUserId + ',' + v.verificationHash;
+        nacl.sign.detached
+          .verify(
+            strToUint8Array(message),
+            b64ToUint8Array(v.sig),
+            b64ToUint8Array(v.publicKey)
+          )
+          .should.equal(true);
+      }
+    }
+
+    let user = usersColl.all().toArray()[0];
+
+    let brightId = user._key;
+
+    resp = request.get(`${baseUrl}/verifications/${app._key}/${brightId}`, {
+      qs: {
+        signed: 'nacl',
+      },
+      json: true,
+    });
+
+    resp.status.should.equal(200);
+    for (let v of resp.json.data) {
+      Object.keys(v).should.include('verificationHash');
+      if (v.verification == 'SeedConnectedWithFriend') {
+        v.unique.should.equal(false);
+      } else {
+        v.unique.should.equal(true);
+        const message = v.app + ',' + v.appUserId + ',' + v.verificationHash;
         nacl.sign.detached
           .verify(
             strToUint8Array(message),
@@ -237,21 +266,21 @@ describe("verifications", function () {
     }
   });
 
-  it("should not be able get more than one signature per verification of the app in each expiration period", function () {
+  it('should not be able get more than one signature per verification of the app in each expiration period', function () {
     const info = {
       app: app._key,
       roundedTimestamp:
         parseInt(Date.now() / verificationExpirationLength) *
         verificationExpirationLength,
-      verification: "BrightID",
+      verification: 'BrightID',
     };
     const client = new WISchnorrClient(db.getState().wISchnorrPublic);
     let resp = request.get(`${baseUrl}/verifications/blinded/public`, {
       qs: info,
     });
     const pub = JSON.parse(resp.body).data.public;
-    const uid = "unblinded_uid_of_the_user1";
-    const appUserId = "0xE8FB09228d1373f931007ca7894a08344B80901c";
+    const uid = 'unblinded_uid_of_the_user1';
+    const appUserId = '0xE8FB09228d1373f931007ca7894a08344B80901c';
     const challenge = client.GenerateWISchnorrClientChallenge(
       pub,
       stringify(info),
@@ -270,14 +299,14 @@ describe("verifications", function () {
     resp.json.errorNum.should.equal(errors.DUPLICATE_SIG_REQUEST_ERROR);
   });
 
-  it("apps should be able to check an appUserId verification", function () {
-    let appUserId = "0xE8FB09228d1373f931007ca7894a08344B80901c";
+  it('apps should be able to check an appUserId verification', function () {
+    let appUserId = '0xE8FB09228d1373f931007ca7894a08344B80901c';
     let resp = request.get(
       `${baseUrl}/verifications/${app._key}/${appUserId.toLowerCase()}`,
       {
         qs: {
-          signed: "eth",
-          timestamp: "seconds",
+          signed: 'eth',
+          timestamp: 'seconds',
           includeHash: false,
         },
         json: true,
@@ -285,19 +314,19 @@ describe("verifications", function () {
     );
     resp.status.should.equal(200);
     for (let v of resp.json.data) {
-      Object.keys(v).should.not.include("verificationHash");
-      if (v.verification == "SeedConnectedWithFriend") {
+      Object.keys(v).should.not.include('verificationHash');
+      if (v.verification == 'SeedConnectedWithFriend') {
         v.unique.should.equal(false);
       } else {
         v.unique.should.equal(true);
       }
     }
 
-    appUserId = "0x79aF508C9698076Bc1c2DfA224f7829e9768B11C";
+    appUserId = '0x79aF508C9698076Bc1c2DfA224f7829e9768B11C';
     resp = request.get(`${baseUrl}/verifications/${app._key}/${appUserId}`, {
       qs: {
-        signed: "eth",
-        timestamp: "seconds",
+        signed: 'eth',
+        timestamp: 'seconds',
         includeHash: false,
       },
       json: true,

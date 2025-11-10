@@ -1,19 +1,19 @@
-"use strict";
-const stringify = require("fast-json-stable-stringify");
-const secp256k1 = require("secp256k1");
-const createKeccakHash = require("keccak");
-const BigInteger = require("jsbn").BigInteger;
-const createRouter = require("@arangodb/foxx/router");
-const _ = require("lodash");
-const joi = require("joi");
-const { db: arango, ArangoError } = require("@arangodb");
-const nacl = require("tweetnacl");
-const db = require("./db");
-const schemas = require("./schemas").schemas;
-const operations = require("./operations");
-const WISchnorrServer = require("./WISchnorrServer");
-const WISchnorrClient = require("./WISchnorrClient");
-const crypto = require("@arangodb/crypto");
+'use strict';
+const stringify = require('fast-json-stable-stringify');
+const secp256k1 = require('secp256k1');
+const createKeccakHash = require('keccak');
+const BigInteger = require('jsbn').BigInteger;
+const createRouter = require('@arangodb/foxx/router');
+const _ = require('lodash');
+const joi = require('joi');
+const { db: arango, ArangoError } = require('@arangodb');
+const nacl = require('tweetnacl');
+const db = require('./db');
+const schemas = require('./schemas').schemas;
+const operations = require('./operations');
+const WISchnorrServer = require('./WISchnorrServer');
+const WISchnorrClient = require('./WISchnorrClient');
+const crypto = require('@arangodb/crypto');
 const {
   strToUint8Array,
   uInt8ArrayToB64,
@@ -22,19 +22,125 @@ const {
   addressToBytes32,
   getNaclKeyPair,
   getEthKeyPair,
-} = require("./encoding");
-const parser = require("expr-eval").Parser;
-const errors = require("./errors");
+} = require('./encoding');
+const parser = require('expr-eval').Parser;
+const errors = require('./errors');
 
 const router = createRouter();
 module.context.use(router);
-const usersColl = arango._collection("users");
-const operationsHashesColl = arango._collection("operationsHashes");
-const signedVerificationsColl = arango._collection("signedVerifications");
-const cachedParamsColl = arango._collection("cachedParams");
-const appIdsColl = arango._collection("appIds");
+const usersColl = arango._collection('users');
+const operationsHashesColl = arango._collection('operationsHashes');
+const signedVerificationsColl = arango._collection('signedVerifications');
+const cachedParamsColl = arango._collection('cachedParams');
+const appIdsColl = arango._collection('appIds');
 
 const MAX_OP_SIZE = 2000;
+
+function signVerification(
+  signed,
+  app,
+  appUserId,
+  verificationHash,
+  timestamp,
+  includeHash,
+  verification,
+  appKey
+) {
+  const result = {
+    unique: true,
+    app: appKey,
+    appUserId,
+    verification,
+    sig: '',
+    timestamp,
+  };
+
+  if (includeHash) {
+    result['verificationHash'] = verificationHash;
+  }
+
+  let sig, publicKey;
+
+  if (signed == 'nacl') {
+    const naclKeyPair = getNaclKeyPair();
+    if (!naclKeyPair.privateKey) {
+      throw new errors.NaclKeyNotSetError();
+    }
+
+    let message = appKey + ',' + appUserId;
+    if (includeHash) {
+      message = message + ',' + verificationHash;
+    }
+    if (timestamp) {
+      message = message + ',' + timestamp;
+    }
+    publicKey = naclKeyPair.publicKey;
+    sig = uInt8ArrayToB64(
+      Object.values(
+        nacl.sign.detached(strToUint8Array(message), naclKeyPair.privateKey)
+      )
+    );
+  } else if (signed == 'eth') {
+    const ethKeyPair = getEthKeyPair();
+    if (!ethKeyPair.privateKey) {
+      throw new errors.EthKeyNotSetError();
+    }
+
+    let message, h;
+    if (app.idsAsHex) {
+      message = pad32(appKey) + addressToBytes32(appUserId);
+    } else {
+      if (appUserId.length > 32) {
+        throw new errors.UnsingableAppUserIdError(appUserId);
+      }
+      message = pad32(appKey) + pad32(appUserId);
+    }
+    message = Buffer.from(message, 'binary').toString('hex');
+    if (includeHash) {
+      message += verificationHash;
+    }
+    if (timestamp) {
+      const t = timestamp.toString(16);
+      message += '0'.repeat(64 - t.length) + t;
+    }
+    h = new Uint8Array(
+      createKeccakHash('keccak256').update(message, 'hex').digest()
+    );
+    publicKey = ethKeyPair.publicKey;
+    const _sig = secp256k1.ecdsaSign(h, ethKeyPair.privateKey);
+    sig = {
+      r: Buffer.from(Object.values(_sig.signature.slice(0, 32))).toString(
+        'hex'
+      ),
+      s: Buffer.from(Object.values(_sig.signature.slice(32, 64))).toString(
+        'hex'
+      ),
+      v: _sig.recid + 27,
+    };
+  }
+
+  result['sig'] = sig;
+  result['publicKey'] = publicKey;
+
+  return result;
+}
+
+function isVerifiedByVerificationExpr(verification, verifications, app) {
+  let verified;
+  try {
+    let expr = parser.parse(verification);
+    for (let v of expr.variables()) {
+      if (!verifications[v]) {
+        verifications[v] = false;
+      }
+    }
+    verified = expr.evaluate(verifications);
+  } catch (err) {
+    throw new errors.InvalidExpressionError(app.name, verification, err);
+  }
+
+  return verified;
+}
 
 const handlers = {
   operationsPost: function (req, res) {
@@ -52,12 +158,12 @@ const handlers = {
 
     // allow limited number of operations to be posted in defined time window
     const timeWindow = module.context.configuration.operationsTimeWindow * 1000;
-    const limit = ["Sponsor", "Spend Sponsorship"].includes(op.name)
+    const limit = ['Sponsor', 'Spend Sponsorship'].includes(op.name)
       ? module.context.configuration.appsOperationsLimit
       : module.context.configuration.operationsLimit;
     operations.checkLimits(op, timeWindow, limit);
 
-    op.state = "init";
+    op.state = 'init';
     db.upsertOperation(op);
 
     res.send({
@@ -68,7 +174,7 @@ const handlers = {
   },
 
   operationGet: function (req, res) {
-    const hash = req.param("hash");
+    const hash = req.param('hash');
     const op = db.loadOperation(hash);
     if (op) {
       res.send({
@@ -83,9 +189,9 @@ const handlers = {
   },
 
   userConnectionsGet: function (req, res) {
-    const id = req.param("id");
-    const direction = req.param("direction");
-    const withVerifications = req.param("withVerifications");
+    const id = req.param('id');
+    const direction = req.param('direction');
+    const withVerifications = req.param('withVerifications');
     res.send({
       data: {
         connections: db.userConnections(id, direction, withVerifications),
@@ -94,7 +200,7 @@ const handlers = {
   },
 
   userVerificationsGet: function (req, res) {
-    const id = req.param("id");
+    const id = req.param('id');
     res.send({
       data: {
         verifications: db.userVerifications(id),
@@ -103,7 +209,7 @@ const handlers = {
   },
 
   userInvitesGet: function (req, res) {
-    const id = req.param("id");
+    const id = req.param('id');
     res.send({
       data: {
         invites: db.userInvites(id),
@@ -112,7 +218,7 @@ const handlers = {
   },
 
   userMembershipsGet: function (req, res) {
-    const id = req.param("id");
+    const id = req.param('id');
     res.send({
       data: {
         memberships: db.userMemberships(id),
@@ -121,7 +227,7 @@ const handlers = {
   },
 
   userFamiliesToVouchGet: function (req, res) {
-    const id = req.param("id");
+    const id = req.param('id');
     res.send({
       data: {
         families: db.userFamiliesToVouch(id),
@@ -130,8 +236,8 @@ const handlers = {
   },
 
   userProfileGet: function (req, res) {
-    const id = req.param("id");
-    const requestor = req.param("requestor");
+    const id = req.param('id');
+    const requestor = req.param('requestor');
     const user = db.getUser(id);
     const data = {};
 
@@ -139,15 +245,15 @@ const handlers = {
     data.sponsored = db.isSponsored(id);
     data.verifications = db.userVerifications(id);
     data.recoveryConnections = db.getRecoveryConnections(id);
-    const connections = db.userConnections(id, "inbound");
+    const connections = db.userConnections(id, 'inbound');
     const memberships = db.userMemberships(id);
-    const isKnown = (c) =>
-      ["just met", "already known", "recovery"].includes(c.level);
+    const isKnown = c =>
+      ['just met', 'already known', 'recovery'].includes(c.level);
     data.connectionsNum = connections.filter(isKnown).length;
     data.groupsNum = memberships.length;
     data.reports = connections
-      .filter((c) => c.level === "reported")
-      .map((c) => {
+      .filter(c => c.level === 'reported')
+      .map(c => {
         return { id: c.id, reason: c.reportReason };
       });
     data.createdAt = user.createdAt;
@@ -155,17 +261,17 @@ const handlers = {
     data.requiredRecoveryNum = db.getRequiredRecoveryNum(id);
 
     if (requestor && usersColl.exists(requestor)) {
-      const requestorConnections = db.userConnections(requestor, "outbound");
+      const requestorConnections = db.userConnections(requestor, 'outbound');
       const requestorMemberships = db.userMemberships(requestor);
       data.mutualConnections = _.intersection(
-        connections.filter(isKnown).map((c) => c.id),
-        requestorConnections.filter(isKnown).map((c) => c.id)
+        connections.filter(isKnown).map(c => c.id),
+        requestorConnections.filter(isKnown).map(c => c.id)
       );
       data.mutualGroups = _.intersection(
-        memberships.map((m) => m.id),
-        requestorMemberships.map((m) => m.id)
+        memberships.map(m => m.id),
+        requestorMemberships.map(m => m.id)
       );
-      const conn = requestorConnections.find((c) => c.id === id);
+      const conn = requestorConnections.find(c => c.id === id);
       if (conn) {
         data.connectedAt = conn.timestamp;
         data.level = conn.level;
@@ -175,10 +281,10 @@ const handlers = {
   },
 
   verificationPublicGet: function (req, res) {
-    const appKey = req.param("app");
+    const appKey = req.param('app');
     const app = db.getApp(appKey);
-    const roundedTimestamp = req.param("roundedTimestamp");
-    const verification = req.param("verification");
+    const roundedTimestamp = req.param('roundedTimestamp');
+    const verification = req.param('verification');
 
     if (!app.verifications.includes(verification)) {
       throw new errors.UnacceptableVerification(verification, appKey);
@@ -210,11 +316,90 @@ const handlers = {
     });
   },
 
+  createSignatureById: function (req, res) {
+    const appKey = req.param('app');
+
+    const signed = req.param('signed');
+    let timestamp = req.param('timestamp');
+    const includeHash = req.param('includeHash');
+    const app = db.getApp(appKey);
+
+    let userId = req.param('appUserId');
+
+    const vel = app.verificationExpirationLength;
+    const roundedTimestamp = vel ? parseInt(Date.now() / vel) * vel : 0;
+
+    if (timestamp == 'seconds') {
+      timestamp = vel ? roundedTimestamp / 1000 : parseInt(Date.now() / 1000);
+    } else if (timestamp == 'milliseconds') {
+      timestamp = vel ? roundedTimestamp : Date.now();
+    } else {
+      timestamp = undefined;
+    }
+
+    const results = [];
+
+    let verifications = db.userVerifications(userId);
+    verifications = _.keyBy(verifications, v => v.name);
+
+    for (let verification of app.verifications) {
+      let verified = isVerifiedByVerificationExpr(
+        verification,
+        verifications,
+        app
+      );
+
+      const verificationHash = crypto.sha256(verification);
+
+      let doc = verified
+        ? {
+            uid: Math.random().toString(36).substr(2, 10),
+            app: appKey,
+            appId: userId,
+            verification,
+            roundedTimestamp,
+          }
+        : null;
+
+      const unique = doc ? true : false;
+      const result = {
+        unique,
+        app: appKey,
+        appUserId: userId,
+        verification,
+        sig: '',
+        timestamp,
+      };
+      if (includeHash) {
+        result['verificationHash'] = verificationHash;
+      }
+      if (!doc) {
+        results.push(result);
+        continue;
+      }
+
+      results.push(
+        signVerification(
+          signed,
+          app,
+          userId,
+          verificationHash,
+          timestamp,
+          includeHash,
+          verification,
+          appKey
+        )
+      );
+    }
+
+    res.send({ data: results });
+  },
+
   verificationSigGet: function (req, res) {
-    const id = req.param("id");
-    const sig = req.param("sig");
-    const e = req.param("e");
-    const pub = req.param("public");
+    const id = req.param('id');
+    const sig = req.param('sig');
+    const e = req.param('e');
+    const pub = req.param('public');
 
     // to enable clients that requested the signed verification using the same public before
     // but failed in receiving the response
@@ -234,23 +419,14 @@ const handlers = {
     operations.verifyUserSig(msg, id, sig);
 
     let verifications = db.userVerifications(id);
-    verifications = _.keyBy(verifications, (v) => v.name);
-    let verified;
-    try {
-      let expr = parser.parse(params.verification);
-      for (let v of expr.variables()) {
-        if (!verifications[v]) {
-          verifications[v] = false;
-        }
-      }
-      verified = expr.evaluate(verifications);
-    } catch (err) {
-      throw new errors.InvalidExpressionError(
-        app.name,
-        params.verification,
-        err
-      );
-    }
+    verifications = _.keyBy(verifications, v => v.name);
+
+    let verified = isVerifiedByVerificationExpr(
+      params.verification,
+      verifications,
+      app
+    );
+
     if (!verified) {
       throw new errors.NotVerifiedError(params.app, params.verification);
     }
@@ -282,8 +458,8 @@ const handlers = {
     };
     const response = server.GenerateWISchnorrServerResponse(priv, e);
     // using hash of pub to reduce storage size
-    q["publicHash"] = hash(pub);
-    q["response"] = response;
+    q['publicHash'] = hash(pub);
+    q['response'] = response;
     signedVerificationsColl.insert(q);
     res.send({
       data: {
@@ -293,8 +469,8 @@ const handlers = {
   },
 
   verificationAppUserIdPost: function (req, res) {
-    const app = req.param("app");
-    const appUserId = req.param("appUserId");
+    const app = req.param('app');
+    const appUserId = req.param('appUserId');
     const { sig, verification, roundedTimestamp, uid } = req.body;
     const client = new WISchnorrClient(db.getState().wISchnorrPublic);
     const info = { app, verification, roundedTimestamp };
@@ -316,13 +492,13 @@ const handlers = {
   },
 
   verificationsGet: function (req, res) {
-    const appKey = req.param("app");
-    const signed = req.param("signed");
-    let timestamp = req.param("timestamp");
-    const includeHash = req.param("includeHash");
+    const appKey = req.param('app');
+    const signed = req.param('signed');
+    let timestamp = req.param('timestamp');
+    const includeHash = req.param('includeHash');
     const app = db.getApp(appKey);
-    const pseudoVerification = req.param("pseudoVerification");
-    let appUserId = req.param("appUserId");
+    const pseudoVerification = req.param('pseudoVerification');
+    let appUserId = req.param('appUserId');
     if (app.idsAsHex) {
       appUserId = appUserId.toLowerCase();
     }
@@ -330,7 +506,18 @@ const handlers = {
       app: appKey,
       appId: appUserId,
     });
+
     const development = module.context.configuration.development;
+
+    if (!appUserIdExists) {
+      const userExists = usersColl.exists(req.param('appUserId'));
+
+      if (userExists) {
+        handlers.createSignatureById(req, res);
+        return;
+      }
+    }
+
     if (!(development && pseudoVerification) && !appUserIdExists) {
       throw new errors.AppUserIdNotFoundError(appUserId);
     }
@@ -338,9 +525,9 @@ const handlers = {
     const vel = app.verificationExpirationLength;
     const roundedTimestamp = vel ? parseInt(Date.now() / vel) * vel : 0;
 
-    if (timestamp == "seconds") {
+    if (timestamp == 'seconds') {
       timestamp = vel ? roundedTimestamp / 1000 : parseInt(Date.now() / 1000);
-    } else if (timestamp == "milliseconds") {
+    } else if (timestamp == 'milliseconds') {
       timestamp = vel ? roundedTimestamp : Date.now();
     } else {
       timestamp = undefined;
@@ -366,88 +553,37 @@ const handlers = {
         app: appKey,
         appUserId,
         verification,
-        sig: "",
+        sig: '',
         timestamp,
       };
       if (includeHash) {
-        result["verificationHash"] = verificationHash;
+        result['verificationHash'] = verificationHash;
       }
       if (!doc) {
         results.push(result);
         continue;
       }
 
-      // sign and return the verification
-      let sig, publicKey;
-      if (signed == "nacl") {
-        const naclKeyPair = getNaclKeyPair();
-        if (!naclKeyPair.privateKey) {
-          throw new errors.NaclKeyNotSetError();
-        }
-
-        let message = appKey + "," + appUserId;
-        if (includeHash) {
-          message = message + "," + verificationHash;
-        }
-        if (timestamp) {
-          message = message + "," + timestamp;
-        }
-        publicKey = naclKeyPair.publicKey;
-        sig = uInt8ArrayToB64(
-          Object.values(
-            nacl.sign.detached(strToUint8Array(message), naclKeyPair.privateKey)
-          )
-        );
-      } else if (signed == "eth") {
-        const ethKeyPair = getEthKeyPair();
-        if (!ethKeyPair.privateKey) {
-          throw new errors.EthKeyNotSetError();
-        }
-
-        let message, h;
-        if (app.idsAsHex) {
-          message = pad32(appKey) + addressToBytes32(appUserId);
-        } else {
-          if (appUserId.length > 32) {
-            throw new errors.UnsingableAppUserIdError(appUserId);
-          }
-          message = pad32(appKey) + pad32(appUserId);
-        }
-        message = Buffer.from(message, "binary").toString("hex");
-        if (includeHash) {
-          message += verificationHash;
-        }
-        if (timestamp) {
-          const t = timestamp.toString(16);
-          message += "0".repeat(64 - t.length) + t;
-        }
-        h = new Uint8Array(
-          createKeccakHash("keccak256").update(message, "hex").digest()
-        );
-        publicKey = ethKeyPair.publicKey;
-        const _sig = secp256k1.ecdsaSign(h, ethKeyPair.privateKey);
-        sig = {
-          r: Buffer.from(Object.values(_sig.signature.slice(0, 32))).toString(
-            "hex"
-          ),
-          s: Buffer.from(Object.values(_sig.signature.slice(32, 64))).toString(
-            "hex"
-          ),
-          v: _sig.recid + 27,
-        };
-      }
-
-      result["sig"] = sig;
-      result["publicKey"] = publicKey;
-      results.push(result);
+      results.push(
+        signVerification(
+          signed,
+          app,
+          appUserId,
+          verificationHash,
+          timestamp,
+          includeHash,
+          verification,
+          appKey
+        )
+      );
     }
     res.send({ data: results });
   },
 
   allVerificationsGet: function (req, res) {
-    const appKey = req.param("app");
-    const countOnly = req.param("countOnly");
-    const period = req.param("period");
+    const appKey = req.param('app');
+    const countOnly = req.param('countOnly');
+    const period = req.param('period');
     const data = db.getAppUserIds(appKey, period, countOnly);
     res.send({
       data,
@@ -455,7 +591,7 @@ const handlers = {
   },
 
   appGet: function (req, res) {
-    const appKey = req.param("app");
+    const appKey = req.param('app');
     let app = db.getApp(appKey);
     res.send({
       data: db.appToDic(app),
@@ -463,7 +599,7 @@ const handlers = {
   },
 
   allAppsGet: function (req, res) {
-    const apps = db.getApps().map((app) => db.appToDic(app));
+    const apps = db.getApps().map(app => db.appToDic(app));
     apps.sort((app1, app2) => {
       const used1 = app1.assignedSponsorships - app1.unusedSponsorships;
       const unused1 = app1.unusedSponsorships;
@@ -485,7 +621,7 @@ const handlers = {
   },
 
   groupGet: function (req, res) {
-    const id = req.param("id");
+    const id = req.param('id');
     const group = db.getGroup(id);
     res.send({
       data: {
@@ -495,7 +631,7 @@ const handlers = {
         admins: group.admins,
         seed: group.seed || false,
         region: group.region,
-        type: group.type || "general",
+        type: group.type || 'general',
         url: group.url,
         info: group.info,
         timestamp: group.timestamp,
@@ -504,14 +640,14 @@ const handlers = {
   },
 
   sponsorshipGet: function (req, res) {
-    let appUserId = req.param("appUserId");
+    let appUserId = req.param('appUserId');
     if (db.isEthereumAddress(appUserId)) {
       appUserId = appUserId.toLowerCase();
     }
     const sponsorship = db.getSponsorship(appUserId);
     res.send({
       data: {
-        app: sponsorship._to.replace("apps/", ""),
+        app: sponsorship._to.replace('apps/', ''),
         appHasAuthorized: sponsorship.appHasAuthorized,
         spendRequested: sponsorship.spendRequested,
         timestamp: sponsorship.timestamp,
@@ -522,133 +658,135 @@ const handlers = {
   peersGet: function (req, res) {
     const conf = module.context.configuration;
     res.send({
-      peers: conf.peers ? conf.peers.split(",") : [],
+      peers: conf.peers ? conf.peers.split(',') : [],
     });
   },
 };
 
 router
-  .post("/operations", handlers.operationsPost)
+  .post('/operations', handlers.operationsPost)
   .body(schemas.operation)
-  .summary("Add an operation to be applied after consensus")
-  .description("Add an operation be applied after consensus.")
+  .summary('Add an operation to be applied after consensus')
+  .description('Add an operation be applied after consensus.')
   .response(schemas.operationPostResponse)
-  .error(400, "Failed to add the operation")
-  .error(403, "Bad signature")
-  .error(429, "Too Many Requests");
+  .error(400, 'Failed to add the operation')
+  .error(403, 'Bad signature')
+  .error(429, 'Too Many Requests');
 
 router
-  .get("/users/:id/memberships", handlers.userMembershipsGet)
+  .get('/users/:id/memberships', handlers.userMembershipsGet)
   .pathParam(
-    "id",
-    joi.string().required().description("the brightid of the user")
+    'id',
+    joi.string().required().description('the brightid of the user')
   )
-  .summary("Gets memberships of the user")
+  .summary('Gets memberships of the user')
   .response(schemas.userMembershipsGetResponse);
 
 router
-  .get("/users/:id/invites", handlers.userInvitesGet)
+  .get('/users/:id/invites', handlers.userInvitesGet)
   .pathParam(
-    "id",
-    joi.string().required().description("the brightid of the user")
+    'id',
+    joi.string().required().description('the brightid of the user')
   )
-  .summary("Gets invites of the user")
+  .summary('Gets invites of the user')
   .response(schemas.userInvitesGetResponse);
 
 router
-  .get("/users/:id/verifications", handlers.userVerificationsGet)
+  .get('/users/:id/verifications', handlers.userVerificationsGet)
   .pathParam(
-    "id",
-    joi.string().required().description("the brightid of the user")
+    'id',
+    joi.string().required().description('the brightid of the user')
   )
-  .summary("Gets verifications of the user")
+  .summary('Gets verifications of the user')
   .response(schemas.userVerificationsGetResponse);
 
 router
-  .get("/users/:id/profile", handlers.userProfileGet)
+  .get('/users/:id/profile', handlers.userProfileGet)
   .pathParam(
-    "id",
+    'id',
     joi
       .string()
       .required()
-      .description("the brightid of the user that info requested about")
+      .description('the brightid of the user that info requested about')
   )
-  .summary("Gets profile information of a user")
+  .summary('Gets profile information of a user')
   .response(schemas.userProfileGetResponse)
-  .error(404, "User not found");
+  .error(404, 'User not found');
 
 router
-  .get("/users/:id/profile/:requestor", handlers.userProfileGet)
+  .get('/users/:id/profile/:requestor', handlers.userProfileGet)
   .pathParam(
-    "id",
+    'id',
     joi
       .string()
       .required()
-      .description("the brightid of the user that info requested about")
+      .description('the brightid of the user that info requested about')
   )
   .pathParam(
-    "requestor",
+    'requestor',
     joi
       .string()
       .required()
-      .description("the brightid of the user that requested info")
+      .description('the brightid of the user that requested info')
   )
-  .summary("Gets profile information of a user")
+  .summary('Gets profile information of a user')
   .description(
     "Gets profile information of a user, including requestor's mutal connections/groups info"
   )
   .response(schemas.userProfileGetResponse)
-  .error(404, "User not found");
+  .error(404, 'User not found');
 
 router
-  .get("/users/:id/connections/:direction", handlers.userConnectionsGet)
+  .get('/users/:id/connections/:direction', handlers.userConnectionsGet)
   .pathParam(
-    "id",
-    joi.string().required().description("the brightid of the user")
+    'id',
+    joi.string().required().description('the brightid of the user')
   )
   .pathParam(
-    "direction",
+    'direction',
     joi
       .string()
       .required()
-      .valid("inbound", "outbound")
-      .description("the direction of the connection")
+      .valid('inbound', 'outbound')
+      .description('the direction of the connection')
   )
   .queryParam(
-    "withVerifications",
+    'withVerifications',
     joi
       .boolean()
       .default(false)
-      .description("true if the requester wants the verifications of the connections too")
+      .description(
+        'true if the requester wants the verifications of the connections too'
+      )
   )
-  .summary("Gets inbound or outbound connections of a user")
+  .summary('Gets inbound or outbound connections of a user')
   .description("Gets user's connections with levels and timestamps")
   .response(schemas.userConnectionsGetResponse);
 
 router
-  .get("/users/:id/familiesToVouch", handlers.userFamiliesToVouchGet)
+  .get('/users/:id/familiesToVouch', handlers.userFamiliesToVouchGet)
   .pathParam(
-    "id",
-    joi.string().required().description("the brightid of the user")
+    'id',
+    joi.string().required().description('the brightid of the user')
   )
-  .summary("Gets family groups which the user can vouch for")
+  .summary('Gets family groups which the user can vouch for')
   .response(schemas.userFamiliesToVouchGetResponse);
 
 router
-  .get("/operations/:hash", handlers.operationGet)
+  .get('/operations/:hash', handlers.operationGet)
   .pathParam(
-    "hash",
-    joi.string().required().description("sha256 hash of the operation message")
+    'hash',
+    joi.string().required().description('sha256 hash of the operation message')
   )
-  .summary("Gets state and result of an operation")
+  .summary('Gets state and result of an operation')
   .response(schemas.operationGetResponse)
-  .error(404, "Operation not found");
+  .error(404, 'Operation not found');
 
 router
-  .get("/verifications/blinded/public", handlers.verificationPublicGet)
-  .queryParam("app", joi.string().required().description("the key of the app"))
+  .get('/verifications/blinded/public', handlers.verificationPublicGet)
+  .queryParam('app', joi.string().required().description('the key of the app'))
   .queryParam(
-    "roundedTimestamp",
+    'roundedTimestamp',
     joi
       .number()
       .integer()
@@ -658,92 +796,95 @@ router
       )
   )
   .queryParam(
-    "verification",
-    joi.string().required().description("custom verification expression")
+    'verification',
+    joi.string().required().description('custom verification expression')
   )
-  .summary("Gets public part of WI-Schnorr params")
+  .summary('Gets public part of WI-Schnorr params')
   .description(
-    "Gets public part of WI-Schnorr params using deterministic json representation of {app, roundedTimestamp, verification} as info"
+    'Gets public part of WI-Schnorr params using deterministic json representation of {app, roundedTimestamp, verification} as info'
   )
   .response(schemas.verificationPublicGetResponse)
-  .error(404, "app not found")
-  .error(403, "invalid rounded timestamp");
+  .error(404, 'app not found')
+  .error(403, 'invalid rounded timestamp');
 
 router
-  .get("/verifications/blinded/sig/:id", handlers.verificationSigGet)
+  .get('/verifications/blinded/sig/:id', handlers.verificationSigGet)
   .pathParam(
-    "id",
+    'id',
     joi
       .string()
       .required()
-      .description("the brightid of the user requesting the verification")
+      .description('the brightid of the user requesting the verification')
   )
   .queryParam(
-    "public",
-    joi.string().required().description("public part of WI-Schnorr params")
+    'public',
+    joi.string().required().description('public part of WI-Schnorr params')
   )
   .queryParam(
-    "sig",
+    'sig',
     joi
       .string()
       .description(
-        "deterministic json representation of {id, public} signed by the user represented by id"
+        'deterministic json representation of {id, public} signed by the user represented by id'
       )
   )
   .queryParam(
-    "e",
+    'e',
     joi
       .string()
       .required()
       .description(
-        "the e part of WI-Schnorr challenge generated by client using public provided by node"
+        'the e part of WI-Schnorr challenge generated by client using public provided by node'
       )
   )
-  .summary("Gets WI-Schnorr server response")
+  .summary('Gets WI-Schnorr server response')
   .description(
-    "Gets WI-Schnorr server response that will be used by client to generate final signature to be shared with the app"
+    'Gets WI-Schnorr server response that will be used by client to generate final signature to be shared with the app'
   )
   .response(schemas.verificationSigGetResponse)
-  .error(404, "app not found")
-  .error(403, "invalid rounded timestamp");
+  .error(404, 'app not found')
+  .error(403, 'invalid rounded timestamp');
 
 router
-  .post("/verifications/:app/:appUserId", handlers.verificationAppUserIdPost)
+  .post('/verifications/:app/:appUserId', handlers.verificationAppUserIdPost)
   .pathParam(
-    "app",
-    joi.string().required().description("the app that user is verified for")
+    'app',
+    joi.string().required().description('the app that user is verified for')
   )
   .pathParam(
-    "appUserId",
-    joi.string().required().description("the id of the user within the app")
+    'appUserId',
+    joi.string().required().description('the id of the user within the app')
   )
   .body(schemas.verificationAppUserIdPostBody)
-  .summary("Posts an unblinded signature")
+  .summary('Posts an unblinded signature')
   .description(
-    "Clients use this endpoint to add unblinded signature for an appUserId to the node to be queried by apps"
+    'Clients use this endpoint to add unblinded signature for an appUserId to the node to be queried by apps'
   )
   .response(null);
 
 router
-  .get("/verifications/:app/:appUserId/", handlers.verificationsGet)
+  .get('/verifications/:app/:appUserId/', handlers.verificationsGet)
   .pathParam(
-    "app",
-    joi.string().required().description("the app that user is verified for")
+    'app',
+    joi.string().required().description('the app that user is verified for')
   )
   .pathParam(
-    "appUserId",
-    joi.string().required().description("the id of user within the app")
+    'appUserId',
+    joi
+      .string()
+      .required()
+      .description("the id of user within the app, Or user's brightid")
   )
   .queryParam(
-    "signed",
+    'signed',
     joi
       .string()
       .description(
-        "the value will be eth or nacl to indicate the type of signature returned"
+        'the value will be eth or nacl to indicate the type of signature returned'
       )
   )
   .queryParam(
-    "timestamp",
+    'timestamp',
     joi
       .string()
       .description(
@@ -751,45 +892,45 @@ router
       )
   )
   .queryParam(
-    "includeHash",
+    'includeHash',
     joi
       .boolean()
       .default(true)
       .description("false if the requester doesn't want the hash included")
   )
   .queryParam(
-    "pseudoVerification",
+    'pseudoVerification',
     joi
       .boolean()
       .default(false)
-      .description("true if the requester wants a pseudo verification")
+      .description('true if the requester wants a pseudo verification')
   )
-  .summary("Gets a signed verification")
+  .summary('Gets a signed verification')
   .description(
-    "Apps use this endpoint to query all signed verifications for an appUserId from the node"
+    'Apps use this endpoint to query all signed verifications for an appUserId from the node'
   )
   .response(schemas.verificationsGetResponse)
-  .error(404, "appUserId not found");
+  .error(404, 'appUserId and brightid not found');
 
 router
-  .get("/verifications/:app", handlers.allVerificationsGet)
+  .get('/verifications/:app', handlers.allVerificationsGet)
   .pathParam(
-    "app",
+    'app',
     joi
       .string()
       .required()
-      .description("the app for which the user is verified")
+      .description('the app for which the user is verified')
   )
   .queryParam(
-    "period",
+    'period',
     joi
       .string()
-      .default("all")
-      .valid("previous", "current", "all")
-      .description("defines expiration periods")
+      .default('all')
+      .valid('previous', 'current', 'all')
+      .description('defines expiration periods')
   )
   .queryParam(
-    "countOnly",
+    'countOnly',
     joi
       .boolean()
       .default(false)
@@ -797,59 +938,59 @@ router
         "true if the requester doesn't want the array of the app generated ids included"
       )
   )
-  .summary("Gets array of all of app generated ids verified for the app")
+  .summary('Gets array of all of app generated ids verified for the app')
   .description(
-    "Gets array of all of app generated ids that are sponsored and verified for using the app"
+    'Gets array of all of app generated ids that are sponsored and verified for using the app'
   )
   .response(schemas.allVerificationsGetResponse)
-  .error(404, "app not found");
+  .error(404, 'app not found');
 
 router
-  .get("/apps/:app", handlers.appGet)
+  .get('/apps/:app', handlers.appGet)
   .pathParam(
-    "app",
-    joi.string().required().description("Unique name of the app")
+    'app',
+    joi.string().required().description('Unique name of the app')
   )
-  .summary("Gets information about an app")
+  .summary('Gets information about an app')
   .response(schemas.appGetResponse)
-  .error(404, "app not found");
+  .error(404, 'app not found');
 
 router
-  .get("/apps", handlers.allAppsGet)
-  .summary("Gets all apps")
+  .get('/apps', handlers.allAppsGet)
+  .summary('Gets all apps')
   .response(schemas.allAppsGetResponse);
 
 router
-  .get("/state", handlers.stateGet)
-  .summary("Gets state of this node")
+  .get('/state', handlers.stateGet)
+  .summary('Gets state of this node')
   .response(schemas.stateGetResponse);
 
 router
-  .get("/groups/:id", handlers.groupGet)
-  .pathParam("id", joi.string().required().description("the id of the group"))
-  .summary("Gets information about a group")
+  .get('/groups/:id', handlers.groupGet)
+  .pathParam('id', joi.string().required().description('the id of the group'))
+  .summary('Gets information about a group')
   .description(
     "Gets a group's admins, info, region, seed, type, url, timestamp, members and invited list."
   )
   .response(schemas.groupGetResponse)
-  .error(404, "Group not found");
+  .error(404, 'Group not found');
 
 router
-  .get("/sponsorships/:appUserId", handlers.sponsorshipGet)
+  .get('/sponsorships/:appUserId', handlers.sponsorshipGet)
   .pathParam(
-    "appUserId",
+    'appUserId',
     joi
       .string()
       .required()
-      .description("the app generated id that info is requested about")
+      .description('the app generated id that info is requested about')
   )
-  .summary("Gets sponsorship information of an app generated id")
+  .summary('Gets sponsorship information of an app generated id')
   .response(schemas.sponsorshipGetResponse)
-  .error(404, "App generated id not found");
+  .error(404, 'App generated id not found');
 
 router
-  .get("/peers", handlers.peersGet)
-  .summary("Gets other nodes this node trusts")
+  .get('/peers', handlers.peersGet)
+  .summary('Gets other nodes this node trusts')
   .response(schemas.peersGetResponse);
 
 module.context.use(function (req, res, next) {
@@ -859,13 +1000,13 @@ module.context.use(function (req, res, next) {
     if (e.cause && e.cause.isJoi) {
       e.code = 400;
       if (
-        req._raw.url.includes("operations") &&
+        req._raw.url.includes('operations') &&
         e.cause.details &&
         e.cause.details.length > 0
       ) {
-        let msg1 = "";
-        const msg2 = "invalid operation name";
-        e.cause.details.forEach((d) => {
+        let msg1 = '';
+        const msg2 = 'invalid operation name';
+        e.cause.details.forEach(d => {
           if (!d.message.includes('"name" must be one of')) {
             msg1 += `${d.message}, `;
           }
@@ -874,10 +1015,10 @@ module.context.use(function (req, res, next) {
       }
     }
     if (!(e instanceof errors.NotFoundError)) {
-      console.group("Error returned");
-      console.log("url:", req._raw.requestType, req._raw.url);
-      console.log("error:", e);
-      console.log("body:", req.body);
+      console.group('Error returned');
+      console.log('url:', req._raw.requestType, req._raw.url);
+      console.log('error:', e);
+      console.log('body:', req.body);
       console.groupEnd();
     }
     let options = undefined;
