@@ -5,7 +5,7 @@ import traceback
 from web3 import Web3
 from arango import ArangoClient
 from web3.middleware import geth_poa_middleware
-from marshmallow import Schema, fields, post_load
+from marshmallow import Schema, fields
 import tools
 import config
 
@@ -32,19 +32,12 @@ class AppSchema(Schema):
     idsAsHex = fields.Boolean(required=True)
     usingBlindSig = fields.Boolean(required=True)
     nodeUrl = fields.URL(load_default='', allow_none=True)
-    verificationExpirationLength = fields.Integer(load_default=0)
+    verificationExpirationLength = fields.Integer(load_default=300000)
     soulbound = fields.Boolean(required=True)
     callbackUrl = fields.URL(load_default='', allow_none=True)
     url = fields.URL(load_default='', allow_none=True)
     logo = fields.String(load_default='')
     sponsoring = fields.Boolean(required=True)
-
-    @post_load
-    def _post_load(self, data, **kwargs):
-        for k, v in data.items():
-            if v is None:
-                data[k] = 0 if k == 'verificationExpirationLength' else ''
-        return data
 
 
 app_schema = AppSchema()
@@ -87,7 +80,7 @@ def row_to_app(row):
         'url': next(iter(row.get('links') or []), None),
         'logo': get_logo(row['key'], next(iter(row.get('images') or []), '')),
     }
-    return app_schema.load(app)
+    return app_schema.load({k: v for k, v in app.items() if v is not None})
 
 
 def update():
@@ -97,26 +90,27 @@ def update():
         FOR s in sponsorships
             FILTER s.expireDate == null
             COLLECT app = s._to WITH COUNT INTO length
-            RETURN {"app": REGEX_REPLACE(app, "apps/", ""), "used": length}
+            RETURN {"app": PARSE_IDENTIFIER(app).key, "used": length}
     ''')
     used_sponsorships = {c['app']: c['used'] for c in cursor}
 
-    for row in data.values():
-        if ('Key' not in row) or (not row.get('Key')):
-            print(f'the Key not exists => {row}')
+    for row in data:
+        if not row.get('key'):
+            app_name = row.get('name', 'Unknown App')
+            print(f"Validation Error: App '{app_name}' is missing the required 'key' field.")
             continue
 
         try:
             app = row_to_app(row)
         except Exception as e:
-            print(f'app: {row["Key"]} => Invalid data: {e}')
+            print(f'app: {row["key"]} => Invalid data: {e}')
             # try to update totalSponsorships
-            app = {'_key': row['Key']}
+            app = {'_key': row['key']}
 
         try:
             app['totalSponsorships'] = get_sponsorships(app['_key'])
         except Exception as e:
-            print(f'app: {row["Key"]} => Error in get totalSponsorships: {e}')
+            print(f'app: {row["key"]} => Error getting totalSponsorships: {e}')
 
         app['usedSponsorships'] = used_sponsorships.get(app['_key'], 0)
 
