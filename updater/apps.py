@@ -5,7 +5,7 @@ import traceback
 from web3 import Web3
 from arango import ArangoClient
 from web3.middleware import geth_poa_middleware
-from marshmallow import Schema, fields, pre_load, post_load
+from marshmallow import Schema, fields
 import tools
 import config
 
@@ -23,68 +23,21 @@ sp_contract_idchain = w3_idchain.eth.contract(
     address=config.IDCHAIN_SP_ADDRESS,
     abi=config.SP_ABI)
 
-key_converter_dic = {
-    '_key': 'Key',
-    'name': 'Name',
-    'context': 'Context',
-    'sponsorPublicKey': 'Sponsor Public Key',
-    'sponsorEventContract': 'Contract Address',
-    'verification': 'Verification',
-    'verifications': 'Verifications',
-    'testing': 'Testing',
-    'idsAsHex': 'Ids As Hex',
-    'usingBlindSig': 'Using Blind Sig',
-    'localFilter': 'Local Filter',
-    'nodeUrl': 'Node Url',
-    'verificationExpirationLength': 'Verification Expiration Length',
-    'soulbound': 'Soulbound',
-    'callbackUrl': 'Callback Url',
-    'poaNetwork': 'POA Network',
-    'rpcEndpoint': 'RPC Endpoint',
-    'sponsoring': 'Sponsoring',
-}
-
-
 class AppSchema(Schema):
     _key = fields.String(required=True, allow_none=False)
     name = fields.String(required=True, allow_none=False)
-    context = fields.String(required=True, allow_none=True)
-    sponsorPublicKey = fields.String(required=True, allow_none=True)
-    sponsorEventContract = fields.String(required=True, allow_none=True)
-    verification = fields.String(required=True, allow_none=True)
-    verifications = fields.List(fields.String(allow_none=True), required=True)
+    context = fields.String(load_default='')
+    verifications = fields.List(fields.String(), load_default=[])
     testing = fields.Boolean(required=True)
     idsAsHex = fields.Boolean(required=True)
     usingBlindSig = fields.Boolean(required=True)
-    localFilter = fields.Boolean(required=True)
-    nodeUrl = fields.URL(required=True, allow_none=True)
-    verificationExpirationLength = fields.Integer(
-        required=True, allow_none=True)
+    nodeUrl = fields.URL(load_default='', allow_none=True)
+    verificationExpirationLength = fields.Integer(load_default=300000)
     soulbound = fields.Boolean(required=True)
-    poaNetwork = fields.Boolean(required=True)
-    rpcEndpoint = fields.URL(required=True, allow_none=True, schemes={
-                             'http', 'https', 'ws', 'wss'})
-    callbackUrl = fields.URL(required=True, allow_none=True)
-    url = fields.URL(required=True, allow_none=True)
-    logo = fields.String(required=True, allow_none=True)
+    callbackUrl = fields.URL(load_default='', allow_none=True)
+    url = fields.URL(load_default='', allow_none=True)
+    logo = fields.String(load_default='')
     sponsoring = fields.Boolean(required=True)
-
-    @pre_load
-    def _pre_load(self, data, **kwargs):
-        for k, v in data.items():
-            if v == '':
-                data[k] = None
-        return data
-
-    @post_load
-    def _post_load(self, data, **kwargs):
-        for k, v in data.items():
-            if v is None:
-                if k == 'verificationExpirationLength':
-                    data[k] = 0
-                else:
-                    data[k] = ''
-        return data
 
 
 app_schema = AppSchema()
@@ -111,12 +64,23 @@ def get_logo(app_key, url):
 
 
 def row_to_app(row):
-    app = {k1: row[k2] for k1, k2 in key_converter_dic.items() if k2 in row}
-    app['url'] = next(iter(row.get('Links', [])), '').strip()
-    app['logo'] = get_logo(app['_key'], next(
-        iter(row.get('Images', [])), '').strip())
-    app = app_schema.load(app)
-    return app
+    app = {
+        '_key': row['key'],
+        'name': row['name'],
+        'sponsoring': row['sponsoring'],
+        'testing': row['testing'],
+        'idsAsHex': row['idsAsHex'],
+        'soulbound': row['soulbound'],
+        'usingBlindSig': row['usingBlindSig'],
+        'verifications': row.get('verifications', []),
+        'verificationExpirationLength': row.get('verificationExpirationLength'),
+        'nodeUrl': row.get('nodeUrl'),
+        'context': row.get('context'),
+        'callbackUrl': row.get('callbackUrl'),
+        'url': next(iter(row.get('links') or []), None),
+        'logo': get_logo(row['key'], next(iter(row.get('images') or []), '')),
+    }
+    return app_schema.load({k: v for k, v in app.items() if v is not None})
 
 
 def update():
@@ -126,26 +90,27 @@ def update():
         FOR s in sponsorships
             FILTER s.expireDate == null
             COLLECT app = s._to WITH COUNT INTO length
-            RETURN {"app": REGEX_REPLACE(app, "apps/", ""), "used": length}
+            RETURN {"app": PARSE_IDENTIFIER(app).key, "used": length}
     ''')
     used_sponsorships = {c['app']: c['used'] for c in cursor}
 
-    for row in data['Applications']:
-        if ('Key' not in row) or (not row.get('Key')):
-            print(f'the Key not exists => {row}')
+    for row in data:
+        if not row.get('key'):
+            app_name = row.get('name', 'Unknown App')
+            print(f"Validation Error: App '{app_name}' is missing the required 'key' field.")
             continue
 
         try:
             app = row_to_app(row)
         except Exception as e:
-            print(f'app: {row["Key"]} => Invalid data: {e}')
+            print(f'app: {row["key"]} => Invalid data: {e}')
             # try to update totalSponsorships
-            app = {'_key': row['Key']}
+            app = {'_key': row['key']}
 
         try:
             app['totalSponsorships'] = get_sponsorships(app['_key'])
         except Exception as e:
-            print(f'app: {row["Key"]} => Error in get totalSponsorships: {e}')
+            print(f'app: {row["key"]} => Error getting totalSponsorships: {e}')
 
         app['usedSponsorships'] = used_sponsorships.get(app['_key'], 0)
 
@@ -154,15 +119,6 @@ def update():
             OPTIONS { overwriteMode: "update" }
         ''', bind_vars={
             'app': app
-        })
-
-    for app_key in data['Removed apps']:
-        db.aql.execute('''
-            for app in apps
-                filter app._key == @key
-                REMOVE { _key: app._key } IN apps OPTIONS { ignoreErrors: true }
-        ''', bind_vars={
-            'key': app_key,
         })
 
 
