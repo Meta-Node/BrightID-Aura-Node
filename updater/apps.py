@@ -84,8 +84,12 @@ def row_to_app(row):
 
 
 def update():
-    data = requests.get(config.APPS_JSON_FILE).json()
-
+    try:
+        data = requests.get(config.APPS_JSON_API_URL).json()
+    except Exception as e:
+        print(f'Failed to get the data from api endpoint: {e}')
+        return
+    
     cursor = db.aql.execute('''
         FOR s in sponsorships
             FILTER s.expireDate == null
