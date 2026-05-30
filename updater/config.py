@@ -20,7 +20,7 @@ CHUNK = 1000
 RECHECK_CHUNK = 10
 
 APPS_JSON_API_URL = os.environ.get(
-    "BN_DASHBOARD_PROJECTS_API",
+    "BN_UPDATER_PROJECTS_URL",
     "https://aura-get-verified.vercel.app/api/projects/brightid-apps",
 )
 
