@@ -4,10 +4,7 @@ BrightID nodes store the social graph used by [BrightID](https://github.com/Brig
 
 ## Documentation
 
-Docs live in [`docs/`](docs/) so they stay in sync with the code — this
-replaces the old [wiki](https://github.com/BrightID/BrightID-Node/wiki),
-which is no longer the source of truth. If a page here goes stale, fix it in
-the same PR that made it stale, or flag it.
+If a page here goes stale, fix it in the same PR that made it stale, or flag it.
 
 * [Installation Guide](docs/installation-guide.md) — running a node: Docker setup, `config.env`, firewall, ArangoDB GUI access
 * [Development Guide](docs/development-guide.md) — interactive development against a live service, plus the automated `scripts/build-foxx.sh` build/test path
@@ -20,8 +17,5 @@ the same PR that made it stale, or flag it.
 
 ## Contribute
 
-Many issues have [bounties assigned](https://github.com/orgs/BrightID/projects/2?card_filter_query=label%3A%22bounty+%F0%9F%92%8E%22), paid in [BrightID Subs tokens](https://uniswap.info/token/0x61ceac48136d6782dbd83c09f51e23514d12470a).
-
-* [Project board](https://github.com/orgs/BrightID/projects/2)
 * [All BrightID repos](https://github.com/BrightID)
 * [Apply to our keybase](https://keybase.io/team/brightid) to talk with other contributors.
