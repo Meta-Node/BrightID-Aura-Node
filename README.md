@@ -12,7 +12,8 @@ Many issues have [bounties assigned](https://github.com/orgs/BrightID/projects/2
 
 ### Dev Setup
 
-* [Development guide](https://github.com/BrightID/BrightID-Node/wiki/Development-Guide) for setting up a development environment and workflow.
+* [Development guide](docs/development-guide.md) for building/testing the Foxx services, including the automated `scripts/build-foxx.sh` path.
+* The [wiki Development Guide](https://github.com/BrightID/BrightID-Node/wiki/Development-Guide) still covers the manual, interactive docker/ArangoDB-UI workflow. Wiki pages are gradually moving into `docs/` over time.
 
 ## Running a Node
 

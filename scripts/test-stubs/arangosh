@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stub for build-foxx.test.sh: always reports the server as ready and any
+# javascript.execute-string command as successful.
+exit 0

@@ -414,19 +414,10 @@ const handlers = {
     }
 
     const params = db.getCachedParams(pub);
-    const app = db.getApp(params.app);
     const msg = stringify({ id, public: JSON.parse(pub) });
     operations.verifyUserSig(msg, id, sig);
 
-    let verifications = db.userVerifications(id);
-    verifications = _.keyBy(verifications, v => v.name);
-
-    let verified = isVerifiedByVerificationExpr(
-      params.verification,
-      verifications,
-      app
-    );
-
+    const verified = db.isVerifiedFor(id, params.verification)
     if (!verified) {
       throw new errors.NotVerifiedError(params.app, params.verification);
     }
