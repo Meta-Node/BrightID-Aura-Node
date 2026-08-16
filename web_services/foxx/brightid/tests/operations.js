@@ -1067,6 +1067,15 @@ describe("operations", function () {
     })
 
     it('should accept new sponsor operation without appUserId', function () {
+      // u12's user record (created in this file's top-level `before`) gets
+      // wiped by the "family groups" describe's `before` hook, which
+      // truncates usersColl and only recreates the users it reconnects
+      // (u7-u11) - not u12. Its "SeedConnected" verification record
+      // survives (verificationsColl isn't truncated there), but the user
+      // it references doesn't, so re-create it here rather than depend on
+      // fragile cross-describe ordering.
+      db.createUser(u12.id, Date.now());
+
       let op = {
         name: "Sponsor",
         app: "idchain",

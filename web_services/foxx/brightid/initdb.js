@@ -99,6 +99,13 @@ const variables = [
   { _key: "PREV_SNAPSHOT_TIME", value: 1612900000 },
 ];
 
+// `variablesColl` is captured at module load time, before createCollections()
+// runs, so on a fresh database with no `variables` collection it would be bound
+// to null forever. Create it here (idempotently, same check-then-create pattern
+// createCollections() uses below) so the reference is always valid.
+if (!arango._collection("variables")) {
+  arango._create("variables", {}, collections["variables"]);
+}
 const variablesColl = arango._collection("variables");
 
 function createCollections() {
