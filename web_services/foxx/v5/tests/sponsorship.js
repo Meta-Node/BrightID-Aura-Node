@@ -93,7 +93,14 @@ describe("New sponsorship routine", function () {
     appsColl.truncate();
     sponsorshipsColl.truncate();
     verificationsColl.truncate();
-    variablesColl.truncate();
+    // Note: `variables` is a shared, globally-seeded config collection (e.g.
+    // VERIFICATIONS_HASHES, set up once by initdb.js), not fixture data owned
+    // by this suite - this before hook only reads it, never writes to it, so
+    // it must not be truncated here. Doing so previously left `variables`
+    // empty for every suite that runs afterward in the same test process,
+    // breaking any code path that calls db.userVerifications() (e.g. Add
+    // Connection/Connect operations, group creation) with an ArangoDB
+    // "document not found" error.
     contextsColl.truncate();
   });
 
