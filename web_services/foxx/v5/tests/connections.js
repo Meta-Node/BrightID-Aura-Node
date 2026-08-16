@@ -1,6 +1,7 @@
 "use strict";
 
 const db = require("../db.js");
+const errors = require("../errors.js");
 const arango = require("@arangodb").db;
 const usersColl = arango._collection("users");
 const connectionsColl = arango._collection("connections");
@@ -163,6 +164,61 @@ describe("connections", function () {
     conn.level.should.equal("reported");
     conn.reportReason.should.equal("replaced");
     conn.replacedWith.should.equal("b");
+  });
+});
+
+describe("self connections", function () {
+  before(function () {
+    usersColl.truncate();
+    connectionsColl.truncate();
+    connectionsHistoryColl.truncate();
+  });
+  after(function () {
+    usersColl.truncate();
+    connectionsColl.truncate();
+    connectionsHistoryColl.truncate();
+  });
+
+  it('should not be able to use "connect" to connect a user to themself', function () {
+    (function () {
+      db.connect({ id1: "a", id2: "a", level: "just met", timestamp });
+    }).should.throw(errors.ForbiddenConnectionError);
+    should.not.exist(
+      connectionsColl.firstExample({ _from: "users/a", _to: "users/a" })
+    );
+    should.not.exist(
+      connectionsHistoryColl.firstExample({ _from: "users/a", _to: "users/a" })
+    );
+    // the rejected connection should not have created the user either
+    should.not.exist(usersColl.firstExample({ _key: "a" }));
+  });
+
+  it('should not be able to use "addConnection" to connect a user to themself', function () {
+    (function () {
+      db.addConnection("a", "a", timestamp);
+    }).should.throw(errors.ForbiddenConnectionError);
+    should.not.exist(
+      connectionsColl.firstExample({ _from: "users/a", _to: "users/a" })
+    );
+  });
+
+  it('should not be able to use "removeConnection" to report themself', function () {
+    (function () {
+      db.removeConnection("a", "a", "duplicate", timestamp);
+    }).should.throw(errors.ForbiddenConnectionError);
+    should.not.exist(
+      connectionsColl.firstExample({ _from: "users/a", _to: "users/a" })
+    );
+  });
+
+  it("should still be able to connect two different users", function () {
+    db.connect({ id1: "a", id2: "b", level: "just met", timestamp });
+    connectionsColl
+      .firstExample({
+        _from: "users/a",
+        _to: "users/b",
+      })
+      .level.should.equal("just met");
   });
 });
 

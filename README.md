@@ -13,6 +13,7 @@ If a page here goes stale, fix it in the same PR that made it stale, or flag it.
 * [Importing a context from one node into another](docs/importing-a-context.md)
 * [Tagging a new Docker release](docs/tagging-a-release.md)
 * [v6 API Changelog](docs/v6-changelog.md) — historical reference for what the v6 API introduced
+* [Open questions](docs/open-questions.md) — things worth doing that weren't done on the spot, recorded instead of forgotten
 * [API spec](https://brightid.stoplight.io) for developers integrating BrightID (external — not part of this repo)
 
 ## Contribute

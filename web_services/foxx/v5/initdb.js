@@ -154,6 +154,12 @@ function v5_3() {
     .forEach((conn) => {
       const key1 = conn._from.replace("users/", "");
       const key2 = conn._to.replace("users/", "");
+      if (key1 == key2) {
+        // db.connect() rejects these now, and v5_9_9 deletes them anyway.
+        // Without this, replaying a legacy database that holds a self
+        // connection would throw here and abort the whole upgrade chain.
+        return;
+      }
       if (conn.timestamp < 1597276800000) {
         // 08/13/2020 12:00am (UTC)
         db.connect({
@@ -189,6 +195,9 @@ function v5_3() {
     .forEach((user) => {
       if (user.trusted) {
         for (let conn of user.trusted) {
+          if (conn == user._key) {
+            continue;
+          }
           db.connect({
             id1: user._key,
             id2: conn,
@@ -199,6 +208,9 @@ function v5_3() {
       }
       if (user.flaggers) {
         for (let flagger in user.flaggers) {
+          if (flagger == user._key) {
+            continue;
+          }
           db.connect({
             id1: flagger,
             id2: user._key,
@@ -436,6 +448,38 @@ function v5_9_8() {
     });
 }
 
+function v5_9_9() {
+  // db.connect() now rejects key1 == key2, but this node has been running
+  // without that guard for years, so self connections can already exist.
+  for (let collName of ["connections", "connectionsHistory"]) {
+    const coll = arango._collection(collName);
+    const count = query`
+      FOR doc IN ${coll}
+        FILTER doc._from == doc._to
+        COLLECT WITH COUNT INTO length
+        RETURN length`.toArray()[0];
+    console.log(
+      `removing ${count} self connections from the ${collName} collection`
+    );
+    query`
+      FOR doc IN ${coll}
+        FILTER doc._from == doc._to
+        REMOVE doc IN ${coll}`;
+  }
+
+  // connect() sets the first verified user connecting to a user as its parent,
+  // so a self connection made a user its own parent. That is the only way
+  // parent can equal _key, and checkLimits would otherwise keep giving such a
+  // user its own rate limit bucket instead of the global one.
+  console.log(
+    "removing 'parent' attribute from users that are their own parent"
+  );
+  query`
+    FOR u IN users
+      FILTER u.parent == u._key
+      REPLACE UNSET(u, 'parent') IN users`;
+}
+
 const upgrades = [
   "v5",
   "v5_3",
@@ -448,6 +492,7 @@ const upgrades = [
   "v5_9_1",
   "v5_9_2",
   "v5_9_8",
+  "v5_9_9",
 ];
 
 function initdb() {

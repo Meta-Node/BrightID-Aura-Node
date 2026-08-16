@@ -62,10 +62,18 @@ describe("time window", function () {
     }).should.throw(errors.TooManyOperationsError);
   });
   it("every app should have different limit", function () {
-    operations.checkLimits({ name: "Sponsor", app: "app1" }, 100, 2);
-    operations.checkLimits({ name: "Sponsor", app: "app1" }, 100, 2);
+    // Sponsor ops are rate-limited per app AND per signing user (senderAttrs
+    // includes both "app" and "id"), and checkLimits only throws once every
+    // sender's own bucket is over its limit - so both "app1" and "user1"
+    // need to independently exceed the limit for the third call to throw.
+    // With limit=1: call 1 fills app1's bucket (returns early on app1,
+    // never touching user1's); call 2 exceeds app1's bucket but fills
+    // user1's for the first time (returns early on user1); call 3 exceeds
+    // both, so neither sender saves it and it throws.
+    operations.checkLimits({ name: "Sponsor", app: "app1", id: "user1" }, 100, 1);
+    operations.checkLimits({ name: "Sponsor", app: "app1", id: "user1" }, 100, 1);
     (() => {
-      operations.checkLimits({ name: "Sponsor", app: "app1" }, 100, 2);
+      operations.checkLimits({ name: "Sponsor", app: "app1", id: "user1" }, 100, 1);
     }).should.throw(errors.TooManyOperationsError);
   });
 });
