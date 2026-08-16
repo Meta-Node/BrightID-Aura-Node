@@ -1,12 +1,29 @@
 #!/bin/sh
 # Stub for build-foxx.test.sh. Behavior controlled by env vars:
-#   FOXX_FAIL_INSTALL=1   - "foxx install ..." exits 1
-#   FOXX_FAIL_TEST=<n>    - "foxx test ..." exits <n> (simulating n failing tests)
+#   FOXX_FAIL_INSTALL=1        - "foxx install ..." exits 1, any mount
+#   FOXX_FAIL_INSTALL_MOUNT=X  - "foxx install ..." exits 1 only when a
+#                                mount argument contains X (e.g. "6" to
+#                                fail only v6's installs, not v5's)
+#   FOXX_FAIL_TEST=<n>         - "foxx test ..." exits <n> (simulating n
+#                                failing tests)
 case "$1" in
   install)
     if [ -n "${FOXX_FAIL_INSTALL:-}" ]; then
       echo "stub: simulated install failure" >&2
       exit 1
+    fi
+    if [ -n "${FOXX_FAIL_INSTALL_MOUNT:-}" ]; then
+      for arg in "$@"; do
+        case "$arg" in
+          # Only match actual mount-point arguments (/brightid6, /apply5,
+          # ...), never config values like `-c operationsLimit=60`, which
+          # would otherwise false-match "6" in "60".
+          /brightid*"$FOXX_FAIL_INSTALL_MOUNT"|/apply*"$FOXX_FAIL_INSTALL_MOUNT")
+            echo "stub: simulated install failure for mount matching $FOXX_FAIL_INSTALL_MOUNT" >&2
+            exit 1
+            ;;
+        esac
+      done
     fi
     echo "Installed service (stub)."
     ;;

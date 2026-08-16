@@ -2,9 +2,18 @@
 # Runs inside the foxx-builder container (see build-foxx.sh), or directly on
 # the host under scripts/build-foxx.test.sh with FOXX_BASE_DIR pointed at a
 # fake source tree and arangod/arangosh/npm/foxx stubbed on PATH.
+#
+# Builds and tests both v5 (soulbound verification) and v6 (blind-signature
+# verification) from web_services/foxx/v5 and v6. Production installs both
+# into the same ArangoDB database (_system) since they share the same
+# social graph - but for *testing*, each version gets its own database
+# here, so one version's Mocha suite (truncating collections in
+# before/after hooks) can't pollute the other's fixtures. That's a
+# deliberate difference from production, not an oversight.
 set -e
 
 FOXX_BASE_DIR="${FOXX_BASE_DIR:-/build/foxx}"
+SERVER="http://127.0.0.1:8529"
 
 echo "-- starting arangod --"
 mkdir -p /tmp/arangodb-data /tmp/arangodb-apps
@@ -33,53 +42,125 @@ if [ "$up" != "1" ]; then
 fi
 echo "arangod is up"
 
-echo "-- seeding variables collection (works around a fresh-install-only bug in initdb.js, present in upstream too: variablesColl is captured before createCollections() runs) --"
-arangosh --server.authentication false --server.endpoint tcp://127.0.0.1:8529 \
-  --javascript.execute-string "if (!db._collection(\"variables\")) { db._create(\"variables\"); }"
+# v6 uses the default _system database (matches how build-foxx.sh worked
+# before v5 was added). v5 gets its own database, created here, purely for
+# test isolation - see header comment.
+V5_DB=v5test
 
-echo "-- npm ci (installs native modules for this container's OS/libc) --"
-cd "$FOXX_BASE_DIR/brightid"
-npm ci
+echo "-- creating $V5_DB database for v5 test isolation --"
+arangosh --server.authentication false --server.endpoint "$SERVER" \
+  --javascript.execute-string "if (!db._databases().includes(\"$V5_DB\")) { db._createDatabase(\"$V5_DB\"); }"
 
-echo "-- building brightid6.zip --"
-rm -rf /tmp/out/brightid && mkdir -p /tmp/out/brightid/APP
-cp -r "$FOXX_BASE_DIR/brightid/." /tmp/out/brightid/APP/
-find /tmp/out/brightid/APP -name ".DS_Store" -delete
-( cd /tmp/out/brightid && zip -rq /tmp/brightid6.zip APP )
+seed_variables_collection() {
+  db_flag="$1"
+  echo "-- seeding variables collection $db_flag (works around a fresh-install-only bug in initdb.js, present upstream on both v5 and v6: variablesColl is captured before createCollections() runs) --"
+  arangosh --server.authentication false --server.endpoint "$SERVER" $db_flag \
+    --javascript.execute-string "if (!db._collection(\"variables\")) { db._create(\"variables\"); }"
+}
 
-echo "-- building apply6.zip --"
-rm -rf /tmp/out/apply && mkdir -p /tmp/out/apply/APP
-cp -r "$FOXX_BASE_DIR/brightid/." /tmp/out/apply/APP/
-find /tmp/out/apply/APP -name ".DS_Store" -delete
-rm -rf /tmp/out/apply/APP/tests
-cp /tmp/out/apply/APP/manifest_apply.json /tmp/out/apply/APP/manifest.json
-( cd /tmp/out/apply && zip -rq /tmp/apply6.zip APP )
+seed_variables_collection ""
+seed_variables_collection "--server.database $V5_DB"
 
-echo "-- writing zips to mounted output (independent of install/test outcome below) --"
-cp /tmp/brightid6.zip "$FOXX_BASE_DIR/brightid6.zip"
-cp /tmp/apply6.zip "$FOXX_BASE_DIR/apply6.zip"
+# $1 = version (5 or 6), $2 = extra foxx-cli db flag (empty for v6/_system)
+build_test_install() {
+  version="$1"
+  db_flag="$2"
+  src="$FOXX_BASE_DIR/v$version"
 
-echo "-- installing services into running arangod --"
-# Config values per the wiki Development Guide (Default Values section):
-# https://github.com/BrightID/BrightID-Node/wiki/Development-Guide
-foxx install --server http://127.0.0.1:8529 \
-  -c seed="\"ci-test-seed-do-not-use-in-production\"" \
-  -c operationsTimeWindow=900 -c operationsLimit=60 -c appsOperationsLimit=500 \
-  /brightid6 /tmp/brightid6.zip
-foxx install --server http://127.0.0.1:8529 \
-  -c seed="\"ci-test-seed-do-not-use-in-production\"" \
-  -c operationsTimeWindow=900 -c operationsLimit=60 -c appsOperationsLimit=500 \
-  /apply6 /tmp/apply6.zip
+  echo "-- npm ci for v$version (installs native modules for this container's OS/libc) --"
+  ( cd "$src" && npm ci )
 
-echo "-- running brightid6 test suite --"
+  echo "-- building brightid$version.zip --"
+  rm -rf "/tmp/out/brightid$version" && mkdir -p "/tmp/out/brightid$version/APP"
+  cp -r "$src/." "/tmp/out/brightid$version/APP/"
+  find "/tmp/out/brightid$version/APP" -name ".DS_Store" -delete
+  ( cd "/tmp/out/brightid$version" && zip -rq "/tmp/brightid$version.zip" APP )
+
+  echo "-- building apply$version.zip --"
+  rm -rf "/tmp/out/apply$version" && mkdir -p "/tmp/out/apply$version/APP"
+  cp -r "$src/." "/tmp/out/apply$version/APP/"
+  find "/tmp/out/apply$version/APP" -name ".DS_Store" -delete
+  rm -rf "/tmp/out/apply$version/APP/tests"
+  cp "/tmp/out/apply$version/APP/manifest_apply.json" "/tmp/out/apply$version/APP/manifest.json"
+  ( cd "/tmp/out/apply$version" && zip -rq "/tmp/apply$version.zip" APP )
+
+  echo "-- writing v$version zips to mounted output (independent of install/test outcome below) --"
+  cp "/tmp/brightid$version.zip" "$FOXX_BASE_DIR/brightid$version.zip"
+  cp "/tmp/apply$version.zip" "$FOXX_BASE_DIR/apply$version.zip"
+
+  echo "-- installing v$version services --"
+  # Config values per docs/development-guide.md's dev defaults.
+  foxx install --server "$SERVER" $db_flag \
+    -c seed="\"ci-test-seed-do-not-use-in-production\"" \
+    -c operationsTimeWindow=900 -c operationsLimit=60 -c appsOperationsLimit=500 \
+    "/brightid$version" "/tmp/brightid$version.zip"
+  foxx install --server "$SERVER" $db_flag \
+    -c seed="\"ci-test-seed-do-not-use-in-production\"" \
+    -c operationsTimeWindow=900 -c operationsLimit=60 -c appsOperationsLimit=500 \
+    "/apply$version" "/tmp/apply$version.zip"
+}
+
+# A build/install failure for one version must never prevent the other
+# from being attempted - each is wrapped so `set -e` can't cascade across
+# versions (the same bug class as the original zip-copy-ordering fix, one
+# level up: build_test_install itself runs `foxx install` under `set -e`,
+# which would otherwise abort the whole script on the first version's
+# failure and skip the second version entirely).
 set +e
-foxx test --server http://127.0.0.1:8529 /brightid6
-TEST_EXIT=$?
+build_test_install 6 ""
+BUILD6_EXIT=$?
 set -e
-
-if [ "$TEST_EXIT" -ne 0 ]; then
-  echo "==> zips written, but $TEST_EXIT test(s) failed - review before shipping" >&2
-else
-  echo "==> done, all tests passed"
+if [ "$BUILD6_EXIT" -ne 0 ]; then
+  echo "==> v6 build/install failed (exit $BUILD6_EXIT) - attempting v5 anyway" >&2
 fi
-exit $TEST_EXIT
+
+set +e
+build_test_install 5 "--database $V5_DB"
+BUILD5_EXIT=$?
+set -e
+if [ "$BUILD5_EXIT" -ne 0 ]; then
+  echo "==> v5 build/install failed (exit $BUILD5_EXIT)" >&2
+fi
+
+TEST6_EXIT=0
+if [ "$BUILD6_EXIT" -eq 0 ]; then
+  echo "=================================================="
+  echo "-- running brightid6 test suite --"
+  set +e
+  foxx test --server "$SERVER" /brightid6
+  TEST6_EXIT=$?
+  set -e
+else
+  echo "==> skipping v6 tests - v6 was not successfully installed" >&2
+fi
+
+TEST5_EXIT=0
+if [ "$BUILD5_EXIT" -eq 0 ]; then
+  echo "=================================================="
+  echo "-- running brightid5 test suite --"
+  set +e
+  foxx test --server "$SERVER" --database "$V5_DB" /brightid5
+  TEST5_EXIT=$?
+  set -e
+else
+  echo "==> skipping v5 tests - v5 was not successfully installed" >&2
+fi
+echo "=================================================="
+
+TOTAL_EXIT=0
+if [ "$BUILD6_EXIT" -ne 0 ]; then
+  TOTAL_EXIT=$((TOTAL_EXIT + BUILD6_EXIT))
+elif [ "$TEST6_EXIT" -ne 0 ]; then
+  echo "==> v6: $TEST6_EXIT test(s) failed - review before shipping" >&2
+  TOTAL_EXIT=$((TOTAL_EXIT + TEST6_EXIT))
+fi
+if [ "$BUILD5_EXIT" -ne 0 ]; then
+  TOTAL_EXIT=$((TOTAL_EXIT + BUILD5_EXIT))
+elif [ "$TEST5_EXIT" -ne 0 ]; then
+  echo "==> v5: $TEST5_EXIT test(s) failed - review before shipping" >&2
+  TOTAL_EXIT=$((TOTAL_EXIT + TEST5_EXIT))
+fi
+if [ "$TOTAL_EXIT" -eq 0 ]; then
+  echo "==> done, all tests passed (v5 and v6)"
+fi
+exit $TOTAL_EXIT
