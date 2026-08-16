@@ -43,6 +43,7 @@ const INVALID_CONTEXTID = 44;
 const APP_AUTHORIZED_BEFORE = 45;
 const SPEND_REQUESTED_BEFORE = 46;
 const SPONSOR_REQUESTED_RECENTLY = 47;
+const FORBIDDEN_CONNECTION = 48;
 
 class BrightIDError extends Error {
   constructor() {
@@ -478,6 +479,14 @@ class SponsorRequestedRecently extends ForbiddenError {
   }
 }
 
+class ForbiddenConnectionError extends ForbiddenError {
+  constructor() {
+    super();
+    this.errorNum = FORBIDDEN_CONNECTION;
+    this.message = "Connecting to yourself is not allowed.";
+  }
+}
+
 module.exports = {
   CONTEXT_NOT_FOUND,
   CONTEXTID_NOT_FOUND,
@@ -523,6 +532,7 @@ module.exports = {
   APP_AUTHORIZED_BEFORE,
   SPEND_REQUESTED_BEFORE,
   SPONSOR_REQUESTED_RECENTLY,
+  FORBIDDEN_CONNECTION,
   BrightIDError,
   BadRequestError,
   InternalServerError,
@@ -573,4 +583,5 @@ module.exports = {
   AppAuthorizedBeforeError,
   SpendRequestedBeforeError,
   SponsorRequestedRecently,
+  ForbiddenConnectionError,
 };
