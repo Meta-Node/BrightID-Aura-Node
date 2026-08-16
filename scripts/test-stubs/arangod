@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stub for build-foxx.test.sh: nothing actually talks to this process (the
+# arangosh stub always reports ready), it just needs to be a real,
+# killable, backgroundable process.
+sleep 60

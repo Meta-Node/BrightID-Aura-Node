@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stub for build-foxx.test.sh: "npm ci" always succeeds without touching
+# the network or installing anything real.
+exit 0
