@@ -33,7 +33,7 @@ if [ "$up" != "1" ]; then
 fi
 echo "arangod is up"
 
-echo "-- seeding variables collection (belt-and-suspenders: initdb.js now creates this itself on a fresh install, but pre-seeding here costs nothing and protects against older service versions still carrying the old bug) --"
+echo "-- seeding variables collection (initdb.js now creates this itself on a fresh install, but pre-seeding here costs nothing) --"
 arangosh --server.authentication false --server.endpoint tcp://127.0.0.1:8529 \
   --javascript.execute-string "if (!db._collection(\"variables\")) { db._create(\"variables\"); }"
 
