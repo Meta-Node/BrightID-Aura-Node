@@ -1,0 +1,49 @@
+schema: spec-driven
+
+context: |
+  BrightID-Aura-Node: the node that hosts the BrightID social graph and computes verifications,
+  including Aura. Services (docker-compose, host networking): db (ArangoDB 3.9.1 + Foxx services
+  v5 and v6 under web_services/foxx/, built by scripts/build-foxx.sh), scorer / consensus / updater
+  (Python 3.7), ws (profile service, Node), web (nginx). Images are built from source here, not pulled.
+  v5 and v6 share one branch (dev) and one database; see web_services/foxx/core/README.md and
+  docs/development-guide.md. Tests: scripts/build-foxx.sh runs both Mocha suites in a container
+  matching production (v5 117, v6 114 at last count) - a change must leave both green.
+
+  Design authority for what the system means to do is BrightID/foundations (how-aura-works.md) -
+  a compass, not a spec store. Cross-repo decisions live in BrightID/shared-specs (ADRs).
+
+  Conventions: decisions numbered D1, D2, D3; only decisions in the Decisions section; any string a
+  change defines is byte-identical in proposal, design, tasks and the code; Impact means downstream
+  impact. Node operators follow docs/installation-guide.md - a change that alters how a node is
+  built, configured or run updates that guide in the same change.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
