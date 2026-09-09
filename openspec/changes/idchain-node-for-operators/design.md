@@ -13,7 +13,7 @@ See proposal.md — Why. Observed 2026-09-09 from one host: tag `idc1.9.18` buil
 **D1 — Build from source with the tested toolchain, here.** `golang:1.14-alpine` matches the tag's own Dockerfile and built first time. Record the resolved commit and image digest.
 *Alternatives:* DAppNode package (DAppNode only); published image (no registry owner yet).
 
-**D2 — Loopback RPC, `eth,net,web3` on HTTP and WS, `30329` inbound.** The RPC serves the Aura node on the same host; `admin`, `personal`, `miner`, `debug` and `clique` stay off both transports. `30329` TCP and UDP inbound so others can connect; it's the port the published list uses.
+**D2 — Loopback RPC, `eth,net,web3,clique` on HTTP and WS, `30329` inbound.** The RPC serves the Aura node on the same host, and the consensus receiver calls `clique_status` on it to count sealers (`consensus/receiver.py`, `update_num_sealers`) and retries without limit if the method is unavailable, so `clique` must be on; it is read-only for a non-signer. `admin`, `personal`, `miner` and `debug` stay off both transports. `30329` TCP and UDP inbound so others can connect; it's the port the published list uses.
 *Alternatives:* RPC on the open internet (2020 client — no); Geth's default `30303` (not what operators expect).
 
 **D3 — Complete the cutover in code.** `updater/config.py` reads `BN_CONSENSUS_IDCHAIN_RPC_URL`; `consensus/receiver.py` always injects PoA middleware. Otherwise a redirected node still calls `idchain.one` from the updater, and a loopback URL disables block handling in the receiver.

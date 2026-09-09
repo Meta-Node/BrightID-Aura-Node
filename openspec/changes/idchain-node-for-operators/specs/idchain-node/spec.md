@@ -19,15 +19,19 @@ The node SHALL be on the same chain as `idchain.one`.
 - **THEN** its block hash at genesis and at that checkpoint equal those served by `https://idchain.one/rpc/`
 
 ### Requirement: Local RPC
-HTTP and WebSocket RPC SHALL be reachable from the host's loopback address only, and the `admin`, `personal`, `miner`, `debug` and `clique` namespaces SHALL NOT be enabled on either.
+HTTP and WebSocket RPC SHALL be reachable from the host's loopback address only, SHALL enable the `eth`, `net`, `web3` and `clique` namespaces, and SHALL NOT enable the `admin`, `personal`, `miner` or `debug` namespaces on either.
 
 #### Scenario: Exposure
 - **WHEN** a connection is attempted from the host and from another machine
 - **THEN** the host connection succeeds and the external connection fails
 
 #### Scenario: Restricted methods
-- **WHEN** `admin_peers` or `clique_getSigners` is requested over HTTP and over WebSocket
+- **WHEN** `admin_peers` is requested over HTTP and over WebSocket
 - **THEN** each returns method unavailable
+
+#### Scenario: Sealer count for the Aura node
+- **WHEN** `clique_status` is requested over HTTP
+- **THEN** it returns `sealerActivity` with one entry per signer
 
 ### Requirement: Persistent identity
 The node's enode public key SHALL be unchanged when the container is recreated with the same data directory.
