@@ -2,6 +2,8 @@
 
 An Aura node talks to IDChain through `idchain.one` and nothing else: the updater hard-codes that URL, and the consensus receiver only handles IDChain blocks correctly when the URL contains `idchain`. There is no documented way to run your own chain source. I stood one up on 2026-09-09; this change makes it repeatable and closes the two code gaps.
 
+This is two changes in one: the two code fixes (the URL and the PoA middleware) can land on their own, without the node package, if that is easier to approve.
+
 ## What Changes
 
 - New `idchain/` directory: `Dockerfile`, `docker-compose.yml`, `idchain-genesis.json`, `static-nodes.json`. Builds `IDChain-eth/IDChain` tag `idc1.9.18` with `golang:1.14-alpine`; RPC on host loopback; p2p on `30329`.
