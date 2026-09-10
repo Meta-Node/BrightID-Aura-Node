@@ -5,7 +5,7 @@ A node reports its distance from the chain and says plainly when it has stopped 
 ## ADDED Requirements
 
 ### Requirement: Lag and chain health are reported separately
-A node SHALL report `chainHead`, `syncLag`, `headAge`, `headRpcError` and `recoveryState` on `/state`. `recoveryState` SHALL take the value `ok` or `stalled` and no other, and SHALL be `stalled` only under the conditions defined in design D1.
+A node SHALL report `chainHead`, `syncLag`, `headAge`, `headRpcError` and `recoveryState` on `/state`. `recoveryState` SHALL take the value `ok` or `stalled` and no other, and SHALL be `stalled` only under the conditions defined in design D1. The detector SHALL read `BN_RECOVERY_CHECK_PERIOD`, `BN_RECOVERY_STALL_WINDOWS`, `BN_RECOVERY_MIN_HEAD_GAIN` and `BN_RECOVERY_MIN_LAG` from configuration, with the defaults `60`, `10`, `6` and `60`.
 
 #### Scenario: IDChain RPC is unreachable
 - **WHEN** the node's IDChain RPC fails or times out
