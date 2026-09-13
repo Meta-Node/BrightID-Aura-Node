@@ -14,10 +14,16 @@ FOXX_DIR="$REPO_ROOT/web_services/foxx"
 IMAGE_TAG="brightid-foxx-builder"
 
 echo "==> Building foxx builder image (matches production ArangoDB version + Alpine/musl runtime)"
-docker build -q -t "$IMAGE_TAG" -f "$REPO_ROOT/scripts/foxx-builder.Dockerfile" "$REPO_ROOT/scripts"
+docker build -q --platform linux/amd64 -t "$IMAGE_TAG" -f "$REPO_ROOT/scripts/foxx-builder.Dockerfile" "$REPO_ROOT/scripts"
 
 echo "==> Running build+test container"
+# linux/amd64: the ArangoDB package the image installs is amd64-only.
+# --network bridge: the container's arangod listens on 127.0.0.1:8529 inside
+# its own network namespace; on the host network it would collide with (and
+# the tests would write to) any ArangoDB already running on the machine.
 docker run --rm \
+  --platform linux/amd64 \
+  --network bridge \
   -v "$FOXX_DIR:/build/foxx" \
   -v "$REPO_ROOT/scripts/foxx-build-inner.sh:/foxx-build-inner.sh:ro" \
   --entrypoint /bin/sh \

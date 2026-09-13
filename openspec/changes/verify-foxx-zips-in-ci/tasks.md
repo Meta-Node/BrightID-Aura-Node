@@ -1,8 +1,8 @@
 ## 1. Deterministic packaging
 
-- [ ] 1.1 `scripts/foxx-builder.Dockerfile`: pin the base image by digest and
+- [x] 1.1 `scripts/foxx-builder.Dockerfile`: pin the base image by digest and
       the `apk add` package versions (D3).
-- [ ] 1.2 `scripts/foxx-build-inner.sh`, `build_test_install`: normalize
+- [x] 1.2 `scripts/foxx-build-inner.sh`, `build_test_install`: normalize
       modification times on the staged tree; replace `zip -rq` with a sorted
       `find` list piped to `zip -X -q -@`; keep `-y` off (D1).
 - [ ] 1.3 Build all four zips twice from independent clean checkouts in the
@@ -14,14 +14,14 @@
 
 ## 2. Workflow
 
-- [ ] 2.1 Add `.github/workflows/foxx-zips.yml` on `ubuntu-latest`, triggered
+- [x] 2.1 Add `.github/workflows/foxx-zips.yml` on `ubuntu-latest`, triggered
       by the five paths in D4.
-- [ ] 2.2 Run `scripts/build-foxx.sh`, then `cmp` each rebuilt zip against its
+- [x] 2.2 Run `scripts/build-foxx.sh`, then `cmp` each rebuilt zip against its
       committed copy; fail naming any mismatch (D2).
 
 ## 3. Docs
 
-- [ ] 3.1 `scripts/README.md`: the check, the fix when it fails, and the rule
+- [x] 3.1 `scripts/README.md`: the check, the fix when it fails, and the rule
       that packaging changes preserve determinism (D1).
 
 ## 4. Verify
@@ -37,4 +37,4 @@
 
 ## 6. Review
 
-- [ ] 6.1 `openspec validate verify-foxx-zips-in-ci --strict` passes.
+- [x] 6.1 `openspec validate verify-foxx-zips-in-ci --strict` passes.

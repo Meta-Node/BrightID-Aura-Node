@@ -1,0 +1,10 @@
+#!/bin/sh
+# Stub for build-foxx.test.sh: foxx-build-inner.sh uses `touch -d @EPOCH`
+# (busybox/GNU). BSD touch on macOS rejects that form, so translate it to
+# -t in UTC and hand everything else to the real touch.
+if [ "$1" = "-d" ]; then
+  epoch=${2#@}; shift 2
+  stamp=$(date -u -r "$epoch" +%Y%m%d%H%M.%S 2>/dev/null || date -u -d "@$epoch" +%Y%m%d%H%M.%S)
+  TZ=UTC exec /usr/bin/touch -t "$stamp" "$@"
+fi
+exec /usr/bin/touch "$@"

@@ -112,6 +112,15 @@ check_zips_written
 check "v5 tests actually ran (not skipped)" "grep -q 'running brightid5 test suite' '$WORKDIR/case4.log'"
 check "v6 tests were skipped (v6 never installed)" "grep -q 'skipping v6 tests' '$WORKDIR/case4.log'"
 
+echo "== case 5: npm ci fails -> both versions attempted, script exits non-zero =="
+clear_zips
+set +e
+FOXX_BASE_DIR="$FAKE_BASE" NPM_FAIL_CI=1 bash "$INNER_SCRIPT" >"$WORKDIR/case5.log" 2>&1
+exit_code=$?
+set -e
+check "script exits non-zero" "[ $exit_code -ne 0 ]"
+check "both versions reported a build failure" "grep -q 'v6 build/install failed' '$WORKDIR/case5.log' && grep -q 'v5 build/install failed' '$WORKDIR/case5.log'"
+
 echo
 echo "$pass passed, $fail failed"
 if [ "$fail" -ne 0 ]; then

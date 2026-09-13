@@ -11,6 +11,7 @@
 # before/after hooks) can't pollute the other's fixtures. That's a
 # deliberate difference from production, not an oversight.
 set -e
+set -o pipefail
 
 FOXX_BASE_DIR="${FOXX_BASE_DIR:-/build/foxx}"
 SERVER="http://127.0.0.1:8529"
@@ -61,6 +62,24 @@ seed_variables_collection() {
 seed_variables_collection ""
 seed_variables_collection "--server.database $V5_DB"
 
+# Deterministic packaging (D1): normalize modification times, then hand zip
+# a sorted list of files and symlinks. -y stays off, so symlinks are stored
+# dereferenced. A symlink to a directory would be stored as an empty
+# directory entry (zip gets no -r), silently dropping its contents - none
+# exist today, so refuse one if it ever appears.
+# $1 = staging dir containing APP, $2 = output zip
+zip_app() {
+  dirlinks=$(cd "$1" && find APP -type l -exec test -d {} \; -print) || return 1
+  if [ -n "$dirlinks" ]; then
+    echo "symlink(s) to a directory in the staged tree - packaging would drop their contents:" >&2
+    echo "$dirlinks" >&2
+    return 1
+  fi
+  find "$1/APP" -exec touch -d "@${SOURCE_DATE_EPOCH:-0}" {} + || return 1
+  rm -f "$2" || return 1
+  ( cd "$1" && find APP \( -type f -o -type l \) | LC_ALL=C sort | TZ=UTC zip -X -q -@ "$2" )
+}
+
 # $1 = version (5 or 6), $2 = extra foxx-cli db flag (empty for v6/_system)
 build_test_install() {
   version="$1"
@@ -68,32 +87,35 @@ build_test_install() {
   src="$FOXX_BASE_DIR/v$version"
 
   echo "-- npm ci for v$version (installs native modules for this container's OS/libc) --"
-  ( cd "$src" && npm ci )
+  ( cd "$src" && npm ci ) || return 1
 
+  # This function runs under `set +e` (see below), so every build step
+  # returns explicitly on failure - a failed npm ci, copy, touch or zip must
+  # fail this version, not be masked by a later success.
   echo "-- building brightid$version.zip --"
-  rm -rf "/tmp/out/brightid$version" && mkdir -p "/tmp/out/brightid$version/APP"
-  cp -r "$src/." "/tmp/out/brightid$version/APP/"
-  find "/tmp/out/brightid$version/APP" -name ".DS_Store" -delete
-  ( cd "/tmp/out/brightid$version" && zip -rq "/tmp/brightid$version.zip" APP )
+  rm -rf "/tmp/out/brightid$version" && mkdir -p "/tmp/out/brightid$version/APP" || return 1
+  cp -r "$src/." "/tmp/out/brightid$version/APP/" || return 1
+  find "/tmp/out/brightid$version/APP" -name ".DS_Store" -delete || return 1
+  zip_app "/tmp/out/brightid$version" "/tmp/brightid$version.zip" || return 1
 
   echo "-- building apply$version.zip --"
-  rm -rf "/tmp/out/apply$version" && mkdir -p "/tmp/out/apply$version/APP"
-  cp -r "$src/." "/tmp/out/apply$version/APP/"
-  find "/tmp/out/apply$version/APP" -name ".DS_Store" -delete
-  rm -rf "/tmp/out/apply$version/APP/tests"
-  cp "/tmp/out/apply$version/APP/manifest_apply.json" "/tmp/out/apply$version/APP/manifest.json"
-  ( cd "/tmp/out/apply$version" && zip -rq "/tmp/apply$version.zip" APP )
+  rm -rf "/tmp/out/apply$version" && mkdir -p "/tmp/out/apply$version/APP" || return 1
+  cp -r "$src/." "/tmp/out/apply$version/APP/" || return 1
+  find "/tmp/out/apply$version/APP" -name ".DS_Store" -delete || return 1
+  rm -rf "/tmp/out/apply$version/APP/tests" || return 1
+  cp "/tmp/out/apply$version/APP/manifest_apply.json" "/tmp/out/apply$version/APP/manifest.json" || return 1
+  zip_app "/tmp/out/apply$version" "/tmp/apply$version.zip" || return 1
 
   echo "-- writing v$version zips to mounted output (independent of install/test outcome below) --"
-  cp "/tmp/brightid$version.zip" "$FOXX_BASE_DIR/brightid$version.zip"
-  cp "/tmp/apply$version.zip" "$FOXX_BASE_DIR/apply$version.zip"
+  cp "/tmp/brightid$version.zip" "$FOXX_BASE_DIR/brightid$version.zip" || return 1
+  cp "/tmp/apply$version.zip" "$FOXX_BASE_DIR/apply$version.zip" || return 1
 
   echo "-- installing v$version services --"
   # Config values per docs/development-guide.md's dev defaults.
   foxx install --server "$SERVER" $db_flag \
     -c seed="\"ci-test-seed-do-not-use-in-production\"" \
     -c operationsTimeWindow=900 -c operationsLimit=60 -c appsOperationsLimit=500 \
-    "/brightid$version" "/tmp/brightid$version.zip"
+    "/brightid$version" "/tmp/brightid$version.zip" || return 1
   foxx install --server "$SERVER" $db_flag \
     -c seed="\"ci-test-seed-do-not-use-in-production\"" \
     -c operationsTimeWindow=900 -c operationsLimit=60 -c appsOperationsLimit=500 \
