@@ -95,7 +95,6 @@ def update_num_sealers():
         NUM_SEALERS = len(resp.json()["result"]["sealerActivity"])
     except Exception as e:
         print("Error from update_num_sealers", e)
-        update_num_sealers()
 
 
 def remove_old_operations():
