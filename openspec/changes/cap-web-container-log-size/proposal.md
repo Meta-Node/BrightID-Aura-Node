@@ -5,7 +5,7 @@
 ## What Changes
 
 - `docker-compose.yml`: the `web` service gets a `logging` block using the `json-file` driver with `max-size: "10m"` and `max-file: "3"`.
-- `docs/installation-guide.md` gets a line noting the cap, how to raise it, that it replaces any daemon-level logging configuration for this container, and that recreating the container removes the old log — capture it first with `docker logs --timestamps web > web-nginx-logs-<date>.txt 2>&1`.
+- `docs/installation-guide.md` gets a line noting the cap, how to raise it, that it replaces the daemon's default logging driver and rotation limits for this container, and that recreating the container removes the old log — capture it first with `docker compose logs --no-color --timestamps web > web-nginx-logs-<date>.txt`.
 
 ## Impact
 
