@@ -86,6 +86,11 @@ services:
     network_mode: host
     env_file:
       - config.env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   snapshots:
