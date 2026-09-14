@@ -3,7 +3,8 @@
 # Go toolchain pinned to golang:1.14-alpine, matching the tag's own build recipe (DAppNodePackage-IDChain).
 FROM golang:1.14-alpine AS builder
 RUN apk add --no-cache make gcc musl-dev linux-headers git
-RUN git clone --branch idc1.9.18 --depth 1 https://github.com/IDChain-eth/IDChain.git /go/IDChain
+RUN git clone --branch idc1.9.18 --depth 1 https://github.com/IDChain-eth/IDChain.git /go/IDChain && \
+    echo "IDChain commit: $(git -C /go/IDChain rev-parse HEAD)"
 WORKDIR /go/IDChain
 RUN make geth
 

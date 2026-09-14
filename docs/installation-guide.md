@@ -223,24 +223,19 @@ docker compose exec geth geth attach --exec 'admin.nodeInfo.enode' /data/geth.ip
 ```
 
 ### Cutover
-`idchain/docker-compose.yml` publishes RPC on `127.0.0.1` only (see "Start the node" above), so this section assumes your IDChain node runs on the **same host** as your Aura node's `consensus_receiver`, `consensus_sender` and `updater` services — that loopback binding is deliberate (D2) and isn't meant to be reached from another machine without a tunnel of your own.
+Run this on the same host as your Aura node: RPC is published on `127.0.0.1` only, and `consensus_receiver`, `consensus_sender` and `updater` use the host's network. Once your node is synced and has at least one live peer, set these four variables in `config.env`:
 
-Once your node is synced and has at least one live peer, point your Aura node at it by setting these four variables in `config.env`:
+- `BN_CONSENSUS_INFURA_URL=ws://127.0.0.1:8546` (the name is legacy; this is IDChain traffic)
+- `BN_CONSENSUS_IDCHAIN_RPC_URL=http://127.0.0.1:8545/`
+- `BN_UPDATER_IDCHAIN_WSS=ws://127.0.0.1:8546`
+- `BN_UPDATER_SEED_GROUPS_WS_URL=ws://127.0.0.1:8546`
 
-- `BN_CONSENSUS_INFURA_URL` — `ws://<host>:8546` (your node's WS listener; the variable name is legacy, this is IDChain traffic, not Infura)
-- `BN_CONSENSUS_IDCHAIN_RPC_URL` — `http://<host>:8545/`
-- `BN_UPDATER_IDCHAIN_WSS` — `ws://<host>:8546`
-- `BN_UPDATER_SEED_GROUPS_WS_URL` — `ws://<host>:8546`
-
-`<host>` is `localhost`/`127.0.0.1` if your Aura services use `network_mode: host` (this repo's `updater` and `consensus_*` services do, by default). If instead they're on the default Compose bridge network, `localhost` won't reach a port published on the *host's* loopback from inside another container — add an `extra_hosts` (or equivalent) entry pointing a hostname containing `idchain` at the host's gateway address, since `consensus/receiver.py`'s PoA middleware keys off that substring in the URL.
-
-Then, **from the repository root** (not `idchain/` — that Compose file only knows about the `geth` service):
+Then, from the repository root:
 ```sh
-cd ..   # back to the repository root, if you're still in idchain/
-docker compose build consensus updater   # picks up the updater/config.py fix
+docker compose build consensus_receiver updater
 docker compose up -d consensus_receiver consensus_sender updater
 ```
-Confirm the cutover took: `lastProcessedBlock` (the `variables` collection's `LAST_BLOCK` document, or the equivalent status endpoint) keeps advancing, a submitted operation gets confirmed, and the updater's IDChain checks keep running — all while `idchain.one` is unreachable from the host.
+`lastProcessedBlock` in `/brightid/v6/state` should keep advancing with `idchain.one` unreachable from the host.
 
 ### Rollback
 Set the four variables above back to `https://idchain.one/rpc/` and `wss://idchain.one/ws/` respectively, and recreate the same three services. Your IDChain node itself can keep running or be stopped independently — it isn't part of the rollback.
