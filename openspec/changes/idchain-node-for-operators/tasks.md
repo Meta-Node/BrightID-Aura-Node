@@ -14,5 +14,5 @@
 
 ## 4. Review
 
-- [ ] 4.1 `openspec validate idchain-node-for-operators --strict` passes.
+- [x] 4.1 `openspec validate idchain-node-for-operators --strict` passes.
 - [ ] 4.2 A human reads every changed word before the PR opens.
