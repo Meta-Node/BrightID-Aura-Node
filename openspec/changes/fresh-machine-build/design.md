@@ -20,6 +20,7 @@
 
 - [Newer userland under ArangoDB] → ArangoDB 3.9.1 is statically linked; the entrypoint's tools (`gpg`, `ar`, `tar`, `numactl`, `pwgen`) are available in 3.22. Verified on one host as above, not across hosts.
 - [Removing `version:`] → Compose v2 ignores it and warns; Compose v1 is end of life.
+- [`INIT_BRIGHTID_DB` left at `1`] → `db` re-restores the backup and `scorer` clears `/snapshots` on every start, so under D2 a crash or reboot would do the same. The guide says to recreate the containers without it once the first start succeeds.
 
 ## Migration Plan
 
