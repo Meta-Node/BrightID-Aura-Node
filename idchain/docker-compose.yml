@@ -1,0 +1,33 @@
+services:
+  geth:
+    build: .
+    container_name: idchain-geth
+    restart: unless-stopped
+    command:
+      - --datadir=/data
+      - --networkid=74
+      - --syncmode=full
+      - --port=30329
+      - --maxpeers=50
+      - --cache=1024
+      - --http
+      # Bind 0.0.0.0 INSIDE the container — the host only publishes the port on
+      # 127.0.0.1 (see ports: below), so RPC stays reachable from the loopback
+      # address only. --http.addr=127.0.0.1 here would leave the published port
+      # pointing at an interface geth isn't listening on, inside a bridged container.
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,clique
+      - --http.vhosts=localhost,127.0.0.1
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,clique
+    ports:
+      - "127.0.0.1:8545:8545"
+      - "127.0.0.1:8546:8546"
+      - "30329:30329"
+      - "30329:30329/udp"
+    volumes:
+      - ./data:/data
+      - ./idchain-genesis.json:/idchain-genesis.json:ro

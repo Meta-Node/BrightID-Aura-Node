@@ -5,6 +5,7 @@ os.environ['BN_UPDATER_SEED_VOTING_ADDRESS'] = '0x56741DbC203648983c359A48aaf68f
 os.environ['BN_UPDATER_SP_ADDRESS_MAINNET'] = '0x0aB346a16ceA1B1363b20430C414eAB7bC179324'
 os.environ['BN_UPDATER_SP_ADDRESS_IDCHAIN'] = '0x183C5D2d1E43A3aCC8a977023796996f8AFd2327'
 os.environ['BN_UPDATER_SEED_GROUPS_WS_URL'] = 'wss://idchain.one/ws/'
+os.environ['BN_CONSENSUS_IDCHAIN_RPC_URL'] = 'https://idchain.one/rpc/'
 os.environ['BN_ARANGO_PROTOCOL'] = 'http'
 os.environ['BN_ARANGO_HOST'] = 'localhost'
 os.environ['BN_ARANGO_PORT'] = '8529'
