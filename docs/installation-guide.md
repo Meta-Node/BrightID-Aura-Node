@@ -12,6 +12,8 @@ See the [guide for setting up HTTPS for your BrightID node](https-setup.md).
 
 ## Docker install/setup
 
+This section covers the published-image path for `BrightID/BrightID-Node`: pulling and running images that project publishes to Docker Hub. To build and run this repository's own images from source instead, see [Building from this repository](#building-from-this-repository) below.
+
 ### Minimum requirements:
 - 2 processor core
 - 4GB RAM
@@ -132,6 +134,35 @@ If the release includes arangodb version upgrade, following command should be ru
 ```sh
 docker-compose run --rm db arangod --database.auto-upgrade
 ```
+
+## Building from this repository
+
+This path builds every service's image from source in this repository, rather than pulling `BrightID/BrightID-Node`'s published images. Use it when running this repository directly (for example, an Aura node) rather than the upstream published node.
+
+### Clone the repository
+```sh
+git clone <this repository's URL>
+cd <the cloned directory>
+```
+
+### Configure BrightID-Node
+Copy or edit `config.env` in the repository root. The required and optional settings are the same as [above](#configure-brightid-node) - at minimum, set `BN_SEED` and `BN_UPDATER_MAINNET_WSS`.
+
+### Build the images
+```sh
+docker compose build
+```
+This builds all seven services from source, including `db` (ArangoDB plus the Foxx services under `web_services/foxx/`) - no registry credentials or Docker Hub account are needed.
+
+### Start the node
+The first start needs `INIT_BRIGHTID_DB=1` so the database is initialized from the latest hourly backup of the [official BrightID node](http://node.brightid.org/brightid/v5/state):
+```sh
+INIT_BRIGHTID_DB=1 docker compose up -d
+```
+Check state as [above](#check-logs-and-state); `/brightid/v6/state` should answer and `lastProcessedBlock` should advance.
+
+### Restart behaviour
+Every service runs with `restart: unless-stopped`. Services come back automatically if the host reboots or a container exits unexpectedly, while a deliberate `docker compose stop` is respected - those services stay stopped, including across a subsequent host reboot.
 
 ## Configure firewall
 Port 80 needs to be exposed for clients. Ports 8529 and 3000 are used internally by BrightID-Node (confirmed against this repo's `docker-compose.yml`, which `expose`s exactly those two ports for `db` and `ws` respectively), but should not be exposed externally.

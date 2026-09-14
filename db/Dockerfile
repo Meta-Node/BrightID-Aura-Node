@@ -1,5 +1,5 @@
 # Edited from https://github.com/arangodb/arangodb-docker/blob/official/alpine/3.9.1/Dockerfile
-FROM alpine:3.14
+FROM alpine:3.22
 MAINTAINER Frank Celler <info@arangodb.com>
 
 ENV ARANGO_VERSION 3.9.1
@@ -13,14 +13,15 @@ ENV ARANGO_SIGNATURE_URL ${ARANGO_PACKAGE_URL}.asc
 #   https://www.arangodb.com/docs/3.9/programs-arangod-server.html#managing-endpoints
 #   https://www.arangodb.com/docs/3.9/programs-arangod-log.html
 
-# nodejs/npm come from Alpine 3.18's repos, not 3.14's (this image's base) -
-# 3.14 only ships Node 14, too old for foxx-cli's dependency tree, which now
-# requires Node >=18. This must run before any other apk package: if an
-# older libstdc++/libssl from 3.14's own repo installs first, apk treats
-# that as satisfying node's dependency even though the ABI doesn't match,
-# and node fails at runtime with "Error relocating /usr/bin/node: symbol
-# not found". Installing node/npm first avoids that.
-RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/v3.18/community --repository=https://dl-cdn.alpinelinux.org/alpine/v3.18/main nodejs npm && \
+# nodejs/npm come from this image's own base (alpine:3.22), which ships
+# Node 22 - new enough for foxx-cli's dependency tree, which requires
+# Node >=18. Installing from the base's own repositories (rather than
+# cross-release, as this Dockerfile used to when it was based on 3.14)
+# avoids the ABI mismatch that cross-release installs risk: a package
+# built against one release's libstdc++/libssl can satisfy apk's
+# dependency resolution while still failing at runtime with
+# "Error relocating /usr/bin/node: symbol not found".
+RUN apk add --no-cache nodejs npm && \
     apk add --no-cache gnupg pwgen binutils numactl numactl-tools && \
     npm install -g foxx-cli@2.1.1 && \
     mv "$(command -v foxx)" /usr/local/bin/foxx-real && \
