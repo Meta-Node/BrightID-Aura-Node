@@ -23,7 +23,6 @@ services:
       - --ws.addr=0.0.0.0
       - --ws.port=8546
       - --ws.api=eth,net,web3,clique
-      - --ws.origins=localhost,127.0.0.1
     ports:
       - "127.0.0.1:8545:8545"
       - "127.0.0.1:8546:8546"

@@ -5,7 +5,7 @@
 
 ## 2. Code
 
-- [ ] 2.1 `updater/config.py`: `IDCHAIN_RPC_URL = os.environ['BN_CONSENSUS_IDCHAIN_RPC_URL']`. Verify: `docker compose build updater` and the updater starts against the default.
+- [ ] 2.1 `updater/config.py`: `IDCHAIN_RPC_URL = os.environ['BN_CONSENSUS_IDCHAIN_RPC_URL']`; `updater/entrypoint.sh` passes that variable to the cron jobs. Verify: `docker compose build updater` and the updater starts against the default.
 - [ ] 2.2 `consensus/receiver.py`: inject PoA middleware unconditionally. Verify: `docker compose build consensus` and `consensus_receiver` advances against the default.
 
 ## 3. Guide
