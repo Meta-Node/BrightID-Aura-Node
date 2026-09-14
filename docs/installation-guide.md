@@ -183,15 +183,14 @@ docker compose build
 This builds `IDChain-eth/IDChain` tag `idc1.9.18` from source with `golang:1.14-alpine`, matching that tag's own build recipe. Record the resolved commit and the built image's digest (`docker image inspect idchain-geth --format '{{.Id}}'` — Compose names a built image `<project>-<service>`, and the project is the directory name, `idchain`) somewhere you'll find again — you'll want both if you ever need to prove what you're running.
 
 ### Initialize the data directory
-`idchain/docker-compose.yml` already mounts `idchain-genesis.json` into the container read-only at `/idchain-genesis.json`, so:
-```sh
-docker compose run --rm geth init --datadir /data /idchain-genesis.json
-```
-produces a `/data/geth/chaindata` directory initialized from the committed genesis. Then seed the peer list — Geth 1.9 reads static peers from `$DATADIR/geth/static-nodes.json`, not `$DATADIR/static-nodes.json`:
+Seed the peer list first, while `data/` is still yours (the container runs as root and `init` leaves root-owned files). Geth 1.9 reads static peers from `$DATADIR/geth/static-nodes.json`:
 ```sh
 mkdir -p data/geth && cp static-nodes.json data/geth/static-nodes.json
 ```
-Do this before the first `up`.
+Then initialize from the committed genesis, which `idchain/docker-compose.yml` mounts read-only at `/idchain-genesis.json`:
+```sh
+docker compose run --rm geth init --datadir /data /idchain-genesis.json
+```
 
 ### Data directory and key backup
 The node's identity — its enode public key — lives in `geth/nodekey` inside the data directory (`./data` next to `idchain/docker-compose.yml` by default). Re-running `init` against an *existing* data directory does not change it; pointing the container at a *new, empty* data directory does. Back up the data directory (or at minimum `geth/nodekey`) before any operation that might replace it, so you don't have to re-announce a new enode to every peer that has yours in their static list.
@@ -215,7 +214,7 @@ The node listens on `30329` (TCP and UDP) for peer-to-peer traffic — distinct 
 The committed `idchain/static-nodes.json` is reviewed by pull request, not self-served: an entry is added after a reviewer connects to it and fetches a block, and removed after it fails to connect from two hosts on two different days. If your node needs more peers than the committed list provides, open a pull request adding your enode (from `admin.nodeInfo.enode`, read below) once someone else has verified it the same way — don't add unverified enodes yourself.
 
 ### Checking sync readiness
-Compare your node's block hash at height 1 and at a checkpoint height you choose against `https://idchain.one/rpc/`'s `eth_getBlockByNumber` for the same heights. A match at both confirms you're on the same chain. Sync time depends on how many peers you have and how fast they are — expect single digit hours from one slow peer; the peer list above is the remedy if it's taking too long.
+Compare your node's block hash at genesis (block 0) and at block 4,000,000 against `https://idchain.one/rpc/`'s `eth_getBlockByNumber` for the same heights. A match at both confirms you're on the same chain. Sync time depends on how many peers you have and how fast they are — expect single digit hours from one slow peer; the peer list above is the remedy if it's taking too long.
 
 To read your node's enode (for backup, or to share it if you're contributing a peer entry), attach over IPC rather than opening `admin` on RPC:
 ```sh
