@@ -13,13 +13,9 @@ ENV ARANGO_SIGNATURE_URL ${ARANGO_PACKAGE_URL}.asc
 #   https://www.arangodb.com/docs/3.9/programs-arangod-server.html#managing-endpoints
 #   https://www.arangodb.com/docs/3.9/programs-arangod-log.html
 
-# nodejs/npm come from this image's own base (alpine:3.22), which ships
-# Node 22 - new enough for foxx-cli's dependency tree, which requires
-# Node >=18. Installing from the base's own repositories (rather than
-# cross-release, as this Dockerfile used to when it was based on 3.14)
-# avoids the ABI mismatch that cross-release installs risk: a package
-# built against one release's libstdc++/libssl can satisfy apk's
-# dependency resolution while still failing at runtime with
+# nodejs/npm come from this image's own Alpine release (3.22 ships Node 22;
+# foxx-cli needs >=18). Installing them from another release's repos, as
+# this file did on 3.14, passes apk's dependency check but fails at runtime:
 # "Error relocating /usr/bin/node: symbol not found".
 RUN apk add --no-cache nodejs npm && \
     apk add --no-cache gnupg pwgen binutils numactl numactl-tools && \

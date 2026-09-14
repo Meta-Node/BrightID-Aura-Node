@@ -137,7 +137,7 @@ docker-compose run --rm db arangod --database.auto-upgrade
 
 ## Building from this repository
 
-This path builds every service's image from source in this repository, rather than pulling `BrightID/BrightID-Node`'s published images. Use it when running this repository directly (for example, an Aura node) rather than the upstream published node.
+This path builds this repository's images from source, rather than pulling `BrightID/BrightID-Node`'s published images. Use it when running this repository directly (for example, an Aura node) rather than the upstream published node.
 
 ### Clone the repository
 ```sh
@@ -152,17 +152,23 @@ Copy or edit `config.env` in the repository root. The required and optional sett
 ```sh
 docker compose build
 ```
-This builds all seven services from source, including `db` (ArangoDB plus the Foxx services under `web_services/foxx/`) - no registry credentials or Docker Hub account are needed.
+This builds the six services that declare a `build:` context (`ws`, `scorer`, `consensus_receiver`/`consensus_sender`, `updater`, `db`) from source; `web` uses the published `nginx` image as-is. The Foxx services (`web_services/foxx/`) ship as pre-built zips; `scripts/build-foxx.sh` rebuilds them (see the [Development Guide](development-guide.md)).
 
 ### Start the node
-The first start needs `INIT_BRIGHTID_DB=1` so the database is initialized from the latest hourly backup of the [official BrightID node](http://node.brightid.org/brightid/v5/state):
+For the first start, initialize the database from the latest hourly backup of the [official BrightID node](http://node.brightid.org/brightid/v5/state):
 ```sh
 INIT_BRIGHTID_DB=1 docker compose up -d
 ```
 Check state as [above](#check-logs-and-state); `/brightid/v6/state` should answer and `lastProcessedBlock` should advance.
 
+**Important:** `INIT_BRIGHTID_DB=1` stays in the `db` and `scorer` containers' environment, and both act on it at *every* start, not just the first: `db` re-downloads and restores the backup, `scorer` clears `/snapshots`. With `restart: unless-stopped` (below), a crash or reboot would do that too. Once the first start succeeds, recreate the containers without it:
+```sh
+unset INIT_BRIGHTID_DB
+docker compose up -d
+```
+
 ### Restart behaviour
-Every service runs with `restart: unless-stopped`. Services come back automatically if the host reboots or a container exits unexpectedly, while a deliberate `docker compose stop` is respected - those services stay stopped, including across a subsequent host reboot.
+Every service runs with `restart: unless-stopped`. Services come back automatically if a container exits unexpectedly or the host reboots (with Docker enabled at boot), while a deliberate `docker compose stop` is respected - those services stay stopped, including across a subsequent host reboot.
 
 ## Configure firewall
 Port 80 needs to be exposed for clients. Ports 8529 and 3000 are used internally by BrightID-Node (confirmed against this repo's `docker-compose.yml`, which `expose`s exactly those two ports for `db` and `ws` respectively), but should not be exposed externally.
