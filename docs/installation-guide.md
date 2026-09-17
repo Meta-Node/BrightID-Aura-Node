@@ -236,5 +236,7 @@ docker compose up -d consensus_receiver consensus_sender updater
 ```
 `lastProcessedBlock` in `/brightid/v6/state` should keep advancing with `idchain.one` unreachable from the host.
 
+The four variables cover the node's own IDChain calls. Apps declare their own RPC endpoints, which the updater reads from `APPS_JSON_API_URL`; those are unaffected by cutover.
+
 ### Rollback
 Set the four variables above back to `https://idchain.one/rpc/` and `wss://idchain.one/ws/` respectively, and recreate the same three services. Your IDChain node itself can keep running or be stopped independently — it isn't part of the rollback.
