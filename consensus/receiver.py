@@ -18,6 +18,7 @@ if config.INFURA_URL.count("rinkeby") > 0 or config.INFURA_URL.count("idchain") 
     w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 NUM_SEALERS = 0
+IDCHAIN_RPC_TIMEOUT = 10
 
 
 def hash(op):
@@ -91,7 +92,12 @@ def update_num_sealers():
     data = {"jsonrpc": "2.0", "method": "clique_status", "params": [], "id": 1}
     headers = {"Content-Type": "application/json", "Cache-Control": "no-cache"}
     try:
-        resp = requests.post(config.IDCHAIN_RPC_URL, json=data, headers=headers)
+        resp = requests.post(
+            config.IDCHAIN_RPC_URL,
+            json=data,
+            headers=headers,
+            timeout=IDCHAIN_RPC_TIMEOUT,
+        )
         NUM_SEALERS = len(resp.json()["result"]["sealerActivity"])
     except Exception as e:
         print("Error from update_num_sealers", e)
