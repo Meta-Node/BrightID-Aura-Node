@@ -128,6 +128,16 @@ The node database is initialized by fetching the latest hourly backup of [offici
 INIT_BRIGHTID_DB=1 docker-compose up -d
 ```
 
+**Important - on an Aura node, re-initializing destroys Aura evaluations.** The upstream backup does not carry the `auraEvaluations` array this repository stores on `connections` documents, so restoring it erases every Aura evaluation the node holds. This has been confirmed on a live node. Before re-initializing a node that holds evaluations:
+
+1. Bring the node up *without* initializing (`docker compose up -d`).
+2. Export every connection with `auraEvaluations != null` to a JSON file.
+3. Stop the database with `docker compose stop db`.
+4. Re-initialize with the command above.
+5. Re-import the exported evaluations.
+
+The export and import tooling is not part of this repository; ask the Aura maintainers for it.
+
 ### Upgrade db
 If the release includes arangodb version upgrade, following command should be run after stopping old containers and before running new ones to upgrade data in volumes using a temporary container.
 
@@ -166,6 +176,8 @@ Check state as [above](#check-logs-and-state); `/brightid/v6/state` should answe
 unset INIT_BRIGHTID_DB
 docker compose up -d
 ```
+
+On an Aura node, an unintended re-initialization also destroys Aura evaluations - see [Re-initialize](#re-initialize).
 
 ### Restart behaviour
 Every service runs with `restart: unless-stopped`. Services come back automatically if a container exits unexpectedly or the host reboots (with Docker enabled at boot), while a deliberate `docker compose stop` is respected - those services stay stopped, including across a subsequent host reboot.
