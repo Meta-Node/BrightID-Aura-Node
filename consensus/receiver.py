@@ -111,8 +111,16 @@ def remove_old_operations():
     )
 
 
+def wait_for_sealer_count():
+    while NUM_SEALERS == 0:
+        update_num_sealers()
+        if NUM_SEALERS == 0:
+            print("Waiting for a successful sealer count before starting main loop")
+            time.sleep(5)
+
+
 def main():
-    update_num_sealers()
+    wait_for_sealer_count()
     variables = db.collection("variables")
     last_block = variables.get("LAST_BLOCK")["value"]
 
