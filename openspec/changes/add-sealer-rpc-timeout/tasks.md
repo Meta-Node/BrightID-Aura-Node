@@ -7,7 +7,7 @@
 
 ## 2. Test
 
-- [ ] 2.1 `consensus/test_receiver.py`: `test_timeout_is_passed_and_caught` —
+- [x] 2.1 `consensus/test_receiver.py`: `test_timeout_is_passed_and_caught` —
       `requests.post` mocked to raise `requests.Timeout`; asserts nothing
       escapes, `NUM_SEALERS` is unchanged, and the call carried
       `timeout=IDCHAIN_RPC_TIMEOUT`. Verify: `python3 -m unittest -v
