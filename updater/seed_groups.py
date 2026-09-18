@@ -8,8 +8,7 @@ import config
 
 db = ArangoClient(hosts=config.ARANGO_SERVER).db('_system')
 w3 = Web3(Web3.WebsocketProvider(config.SEED_GROUPS_WS_URL))
-if config.SEED_GROUPS_WS_URL.count('rinkeby') > 0 or config.SEED_GROUPS_WS_URL.count('idchain') > 0:
-    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 voting = w3.eth.contract(address=config.VOTING_ADDRESS, abi=config.VOTING_ABI)
 
 
