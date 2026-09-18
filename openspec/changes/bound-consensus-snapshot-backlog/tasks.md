@@ -28,11 +28,11 @@
 
 ## 5. Verify
 
-- [ ] 5.1 At cap `1` with the scorer stopped, confirm the receiver deletes
+- [x] 5.1 At cap `1` with the scorer stopped, confirm the receiver deletes
       the oldest snapshot and keeps advancing rather than pausing.
-- [ ] 5.2 Confirm a leftover non-`_fnl` `dump_*` directory is removed on
+- [x] 5.2 Confirm a leftover non-`_fnl` `dump_*` directory is removed on
       startup.
-- [ ] 5.3 With the scorer resumed after a backlog, confirm it processes only
+- [x] 5.3 With the scorer resumed after a backlog, confirm it processes only
       the newest snapshot and deletes the others.
 
 ## 6. Review
