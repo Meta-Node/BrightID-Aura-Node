@@ -1,4 +1,5 @@
 import os
+import re
 import socket
 import json
 import time
@@ -9,6 +10,8 @@ from hashlib import sha256
 import base64
 import config
 import verifications
+
+SNAPSHOT_RE = re.compile(r'^dump_(\d+)_fnl$')
 
 db = ArangoClient(hosts=config.ARANGO_SERVER).db('_system')
 variables = db.collection('variables')
@@ -59,7 +62,6 @@ def remove_verifications_before(block):
 
 def process(snapshot):
     get_time = lambda: time.strftime('%Y-%m-%d %H:%M:%S')
-    get_block = lambda snapshot: int(snapshot.strip('dump_').strip('_fnl'))
 
     print(f'{get_time()} - processing {snapshot} started ...')
     # restore snapshot
@@ -67,7 +69,7 @@ def process(snapshot):
     res = os.system(f"arangorestore --server.username 'root' --server.password '' --server.endpoint 'tcp://{config.BN_ARANGO_HOST}:{config.BN_ARANGO_PORT}' --server.database snapshot --create-database true --create-collection true --import-data true --input-directory {fname} --threads 1")
     assert res == 0, "restoring snapshot failed"
 
-    block = get_block(snapshot)
+    block = int(SNAPSHOT_RE.match(snapshot).group(1))
     # If there are verifications for current block, it means there was
     # an error resulted in retrying the block. Remvoing these verifications
     # helps not filling database and preventing unknown problems that
@@ -93,14 +95,18 @@ def process(snapshot):
 
 
 def next_snapshot():
-    is_final = lambda snapshot: snapshot.endswith('_fnl')
-    get_block = lambda snapshot: int(snapshot.strip('dump_').strip('_fnl'))
     while True:
-        snapshots = os.listdir(config.SNAPSHOTS_PATH)
-        snapshots.sort(key=get_block)
-        snapshot = next(filter(is_final, snapshots), None)
-        if snapshot:
-            return snapshot
+        snapshots = []
+        for name in os.listdir(config.SNAPSHOTS_PATH):
+            match = SNAPSHOT_RE.match(name)
+            if match and os.path.isdir(os.path.join(config.SNAPSHOTS_PATH, name)):
+                snapshots.append((int(match.group(1)), name))
+        if snapshots:
+            snapshots.sort()
+            for _, stale in snapshots[:-1]:
+                print(f'deleting superseded snapshot {stale}')
+                shutil.rmtree(os.path.join(config.SNAPSHOTS_PATH, stale), ignore_errors=True)
+            return snapshots[-1][1]
         time.sleep(1)
 
 

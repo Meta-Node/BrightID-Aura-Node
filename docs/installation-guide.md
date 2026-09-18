@@ -43,6 +43,9 @@ This is an infura (or other wss) API url and should be set to `wss://mainnet.inf
 
 All the variables other than the above two required ones are optional.
 
+##### `BN_CONSENSUS_MAX_PENDING_SNAPSHOTS`
+Maximum number of completed consensus snapshots kept pending for the scorer before the receiver starts deleting the oldest ones to make room. Defaults to `3`.
+
 ##### `BN_CONSENSUS_TO_ADDRESS`
 When running a local node for testing purpose, you should also update `BN_CONSENSUS_TO_ADDRESS` to `0xb1d04A87FdcdB3aAe3dBc846948F25Bd34411e6a` which is the BrightID test network address.
 
