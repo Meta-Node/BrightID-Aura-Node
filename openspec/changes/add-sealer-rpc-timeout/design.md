@@ -28,7 +28,8 @@ more: `requests.get(file['url'])`.
 
 ## Goals / Non-Goals
 
-**Goals:** the sealer-count read cannot block the receiver loop indefinitely.
+**Goals:** an endpoint that accepts the connection and never answers — the
+reported case — can no longer block the receiver loop.
 
 **Non-Goals:** the calls in the table above; any change to retry or error
 handling; making the value configurable.
@@ -37,22 +38,27 @@ handling; making the value configurable.
 
 **D1. A module constant, `IDCHAIN_RPC_TIMEOUT = 10`, in `receiver.py` beside
 `NUM_SEALERS`.** Passed as `timeout=IDCHAIN_RPC_TIMEOUT`. *Rejected:* a
-`BN_CONSENSUS_*` setting — `config.py` reads those with `os.environ[...]`, so a
-new one is a line every operator must add to `config.env` before the receiver
-will start, for a value nobody has asked to tune.
+`BN_CONSENSUS_*` setting — read the way `config.py` reads the existing numeric
+ones (`os.environ[...]`) it is a line every operator must add to `config.env`
+before the receiver will start; read with a default it is still a setting to
+document, for a value nobody has asked to tune.
 
-**D2. 10 seconds, one value for both connect and read.** `clique_status` is a
-small request with a small response. *Rejected:* 60, the value
-`updater/` gives its web3 providers — a dead endpoint would then cost a minute
-per 100 blocks while a node catches up.
+**D2. 10 seconds, one value for both connect and read, and no deadline on the
+request as a whole.** `clique_status` is a small request with a small response.
+*Rejected:* 60, the value `updater/` gives its web3 providers — a dead endpoint
+would then cost a minute per 100 blocks while a node catches up. *Rejected:* a
+whole-request deadline — `requests` has none, so it means a thread or a signal
+around the call, out of proportion to a read of a few hundred bytes.
 
 ## Risks / Trade-offs
 
-- `timeout=` bounds the connect and each wait for data, not the whole request;
-  an endpoint that trickles bytes can hold the call longer than 10 seconds. →
-  Accepted; the `clique_status` response is a few hundred bytes.
-- While catching up, a dead endpoint costs up to 10 seconds per 100 blocks. →
-  Accepted; before this change it cost forever.
+- `timeout=` bounds each connection attempt (one per IP address the host
+  resolves to) and each wait for data. It does not bound DNS resolution or the
+  request as a whole, so an endpoint that trickles bytes can still hold the call
+  longer than 10 seconds. → Accepted under D2.
+- While catching up, an endpoint that does not answer costs about 10 seconds
+  per 100 blocks. → Accepted; before this change it cost forever.
 - #46 (`philip/idchain-node`) and #47 (`philip/snapshot-backlog-cap`) also edit
-  `receiver.py`, and #47 adds its own constant directly after `NUM_SEALERS = 0`.
-  → Whichever merges second takes a trivial merge.
+  `receiver.py`. A trial merge with #46 is clean; #47 adds its own constant
+  directly after `NUM_SEALERS = 0`, so whichever of #47 and this merges second
+  takes a trivial merge: keep both lines.
