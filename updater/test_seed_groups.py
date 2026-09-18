@@ -6,7 +6,8 @@ os.environ.setdefault('BN_UPDATER_MAINNET_WSS', '')
 os.environ.setdefault('BN_UPDATER_IDCHAIN_WSS', 'wss://idchain.one/ws/')
 # Deliberately a hostname containing neither "rinkeby" nor "idchain" - an
 # operator running their own node under their own domain (exactly the
-# idchain-node-for-operators case #38 already fixed on the receiver side).
+# idchain-node-for-operators case #38 identified; #38's implementation,
+# #46, fixes the sibling instance in consensus/receiver.py separately).
 os.environ['BN_UPDATER_SEED_GROUPS_WS_URL'] = 'wss://my-own-node.example.com/ws/'
 os.environ.setdefault('BN_ARANGO_PROTOCOL', 'http')
 os.environ.setdefault('BN_ARANGO_HOST', 'localhost')
@@ -23,9 +24,10 @@ class TestPoAMiddleware(unittest.TestCase):
     """
     seed_groups.py injected the PoA middleware only when the RPC URL's
     hostname happened to contain "rinkeby" or "idchain" - the same
-    hostname-substring bug #38 already fixed on the consensus/receiver.py
-    side. A self-hosted PoA node under any other hostname silently got no
-    PoA middleware, breaking header decoding on a Clique chain.
+    hostname-substring bug identified in consensus/receiver.py by #38
+    (fixed there separately by #38's implementation, #46). A self-hosted
+    PoA node under any other hostname silently got no PoA middleware,
+    breaking header decoding on a Clique chain.
     """
 
     def test_injects_poa_middleware_regardless_of_hostname(self):
