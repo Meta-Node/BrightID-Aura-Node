@@ -12,6 +12,8 @@ See the [guide for setting up HTTPS for your BrightID node](https-setup.md).
 
 ## Docker install/setup
 
+This section covers the published-image path for `BrightID/BrightID-Node`: pulling and running images that project publishes to Docker Hub. To build and run this repository's own images from source instead, see [Building from this repository](#building-from-this-repository) below.
+
 ### Minimum requirements:
 - 2 processor core
 - 4GB RAM
@@ -42,6 +44,9 @@ This is an infura (or other wss) API url and should be set to `wss://mainnet.inf
 #### Optional settings
 
 All the variables other than the above two required ones are optional.
+
+##### `BN_CONSENSUS_MAX_PENDING_SNAPSHOTS`
+Maximum number of completed consensus snapshots kept pending for the scorer before the receiver starts deleting the oldest ones to make room. Defaults to `3`.
 
 ##### `BN_CONSENSUS_TO_ADDRESS`
 When running a local node for testing purpose, you should also update `BN_CONSENSUS_TO_ADDRESS` to `0xb1d04A87FdcdB3aAe3dBc846948F25Bd34411e6a` which is the BrightID test network address.
@@ -125,8 +130,24 @@ If new [BrightID-Node-docker](#download-brightid-node-docker-release) is release
 The node database is initialized by fetching the latest hourly backup of [official BrightID node](http://node.brightid.org/brightid/v5/state) when you run the node for the first time. Pulling new images and running them in upgrade process will not re-initialize the node. The node database can be re-initialized using the following command when your node was down for a long time or there are other problems.
 
 ```sh
-INIT_BRIGHTID_DB=1 docker-compose up -d
+INIT_BRIGHTID_DB=1 docker compose up -d --force-recreate db scorer
 ```
+
+A re-initialization request is served once. The containers keep
+`INIT_BRIGHTID_DB=1` in their environment afterwards, but they will not act on
+it again - a crash, a reboot, or `docker compose stop` followed by
+`docker compose up -d` leaves the database alone. `--force-recreate` is what
+makes a new request, so the command above works the first time and every time
+after.
+
+**Important - on an Aura node, re-initializing destroys Aura evaluations.** The upstream backup does not carry the `auraEvaluations` array this repository stores on `connections` documents, so restoring it erases every Aura evaluation the node holds. This has been confirmed on a live node. Before re-initializing a node that holds evaluations:
+
+1. Bring the node up *without* initializing (`docker compose up -d`).
+2. Export every connection with `auraEvaluations != null` to a JSON file.
+3. Re-initialize with the command above.
+4. Re-import the exported evaluations.
+
+The export and import tooling is not part of this repository; ask the Aura maintainers for it.
 
 ### Upgrade db
 If the release includes arangodb version upgrade, following command should be run after stopping old containers and before running new ones to upgrade data in volumes using a temporary container.
@@ -134,6 +155,34 @@ If the release includes arangodb version upgrade, following command should be ru
 ```sh
 docker-compose run --rm db arangod --database.auto-upgrade
 ```
+
+## Building from this repository
+
+This path builds this repository's images from source, rather than pulling `BrightID/BrightID-Node`'s published images. Use it when running this repository directly (for example, an Aura node) rather than the upstream published node.
+
+### Clone the repository
+```sh
+git clone <this repository's URL>
+cd <the cloned directory>
+```
+
+### Configure BrightID-Node
+Copy or edit `config.env` in the repository root. The required and optional settings are the same as [above](#configure-brightid-node) - at minimum, set `BN_SEED` and `BN_UPDATER_MAINNET_WSS`.
+
+### Build the images
+```sh
+docker compose build
+```
+This builds the six services that declare a `build:` context (`ws`, `scorer`, `consensus_receiver`/`consensus_sender`, `updater`, `db`) from source; `web` uses the published `nginx` image as-is. The Foxx services (`web_services/foxx/`) ship as pre-built zips; `scripts/build-foxx.sh` rebuilds them (see the [Development Guide](development-guide.md)).
+
+### Start the node
+```sh
+docker compose up -d
+```
+On a fresh machine the database initializes itself from the latest hourly backup of the [official BrightID node](http://node.brightid.org/brightid/v5/state). Check state as [above](#check-logs-and-state); `/brightid/v6/state` should answer and `lastProcessedBlock` should advance.
+
+### Restart behaviour
+Every service runs with `restart: unless-stopped`. Services come back automatically if a container exits unexpectedly or the host reboots (with Docker enabled at boot), while a deliberate `docker compose stop` is respected - those services stay stopped, including across a subsequent host reboot.
 
 ## Configure firewall
 Port 80 needs to be exposed for clients. Ports 8529 and 3000 are used internally by BrightID-Node (confirmed against this repo's `docker-compose.yml`, which `expose`s exactly those two ports for `db` and `ws` respectively), but should not be exposed externally.
