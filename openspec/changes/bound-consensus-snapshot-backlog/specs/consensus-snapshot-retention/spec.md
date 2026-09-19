@@ -21,6 +21,18 @@ processing it.
 - **WHEN** exactly one completed snapshot exists
 - **THEN** it is processed as before, with no behavior change
 
+### Requirement: Processing a snapshot never deletes its own verifications
+`scorer/runner.py` SHALL NOT prune verifications at a block higher than the
+snapshot it has just processed.
+
+#### Scenario: VERIFICATION_BLOCK left ahead of the snapshot
+- **WHEN** `VERIFICATION_BLOCK` holds a block number higher than the snapshot
+  being processed — as a snapshot left in `/snapshots` across a database
+  re-initialization leaves it, since its block belongs to a timeline the
+  database no longer occupies
+- **THEN** the verifications written for the snapshot just processed survive,
+  and only verifications below that snapshot's block are removed
+
 ### Requirement: Receiver never blocks on snapshot backlog
 `consensus_receiver` SHALL continue applying chain operations and creating
 snapshots at every `SNAPSHOTS_PERIOD` boundary regardless of how many
