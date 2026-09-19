@@ -5,6 +5,8 @@ import textwrap
 import unittest
 from unittest.mock import patch, MagicMock
 
+import requests
+
 # Needed in this process too: TestWaitForSealerCount imports receiver
 # directly (no crash risk there, so no subprocess needed), and receiver's
 # module-level config.py read requires these to be set before import.
@@ -117,6 +119,29 @@ class TestWaitForSealerCount(unittest.TestCase):
         self.assertEqual(receiver.NUM_SEALERS, 7)
         self.assertEqual(mock_requests.post.call_count, 3)
         self.assertTrue(mock_sleep.called, 'expected a pause between retries')
+
+
+class TestSealerRpcTimeout(unittest.TestCase):
+    """
+    requests has no default timeout, so an RPC endpoint that accepted the
+    connection and never answered blocked the receiver loop indefinitely,
+    with nothing raised and nothing logged. The call must carry a timeout,
+    and a timeout must be one more failed read: caught, count unchanged.
+    """
+
+    def test_timeout_is_passed_and_caught(self):
+        with patch('arango.ArangoClient', MagicMock()), patch('web3.Web3', MagicMock()):
+            import receiver
+        receiver.NUM_SEALERS = 7
+        with patch.object(receiver.requests, 'post') as mock_post:
+            mock_post.side_effect = requests.Timeout('read timed out')
+            receiver.update_num_sealers()
+
+        self.assertEqual(receiver.NUM_SEALERS, 7)
+        self.assertEqual(mock_post.call_count, 1)
+        self.assertEqual(
+            mock_post.call_args[1]['timeout'], receiver.IDCHAIN_RPC_TIMEOUT
+        )
 
 
 if __name__ == '__main__':
