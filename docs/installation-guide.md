@@ -215,3 +215,77 @@ http://localhost:3333/
   * API - shows the API endpoints for the BrightID web service
   * Settings - configure settings for the BrightID web service (Can also be edited as constants in [config.env](#configure-brightid-node))
 *  Logs - view warnings and errors
+
+## Running your own IDChain node
+
+By default `config.env` points every IDChain call at `idchain.one`. If that host is unreachable, `consensus_receiver`, `consensus_sender` and `updater` stall. This section builds and runs your own IDChain sync node from this repository's `idchain/` directory, so your Aura node keeps advancing as long as your IDChain node has a peer. This is a non-sealing full node: no validator key, no `--mine`, no vote. Validator setup is out of scope.
+
+### Prerequisites
+Docker and Docker Compose (the same requirement as the rest of this guide). No Go toolchain needed on the host — the build happens inside the Docker image. At least one reachable IDChain peer (the committed `idchain/static-nodes.json` ships with one confirmed-live peer; see "Contributing a peer entry" below if you need more).
+
+### Build
+From the repository root:
+```sh
+cd idchain
+docker compose build
+```
+This builds `IDChain-eth/IDChain` tag `idc1.9.18` from source with `golang:1.14-alpine`, matching that tag's own build recipe. Record the resolved commit and the built image's digest (`docker image inspect idchain-geth --format '{{.Id}}'` — Compose names a built image `<project>-<service>`, and the project is the directory name, `idchain`) somewhere you'll find again — you'll want both if you ever need to prove what you're running.
+
+### Initialize the data directory
+Seed the peer list first, while `data/` is still yours (the container runs as root and `init` leaves root-owned files). Geth 1.9 reads static peers from `$DATADIR/geth/static-nodes.json`:
+```sh
+mkdir -p data/geth && cp static-nodes.json data/geth/static-nodes.json
+```
+Then initialize from the committed genesis, which `idchain/docker-compose.yml` mounts read-only at `/idchain-genesis.json`:
+```sh
+docker compose run --rm geth init --datadir /data /idchain-genesis.json
+```
+
+### Data directory and key backup
+The node's identity — its enode public key — lives in `geth/nodekey` inside the data directory (`./data` next to `idchain/docker-compose.yml` by default). Re-running `init` against an *existing* data directory does not change it; pointing the container at a *new, empty* data directory does. Back up the data directory (or at minimum `geth/nodekey`) before any operation that might replace it, so you don't have to re-announce a new enode to every peer that has yours in their static list.
+
+### Start the node
+```sh
+docker compose up -d
+```
+Confirm it's alive and on the right chain:
+```sh
+curl -s -X POST -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+  http://127.0.0.1:8545
+```
+should return `0x4a` (74). RPC (HTTP `8545` and WS `8546`) is reachable from `127.0.0.1` only — the `idchain/docker-compose.yml` binds the listener to `0.0.0.0` *inside* the container but publishes the port on the host's loopback address only, so it never reaches the network. Only the `eth`, `net`, `web3` and `clique` namespaces are enabled; `admin`, `personal`, `miner` and `debug` are not, on either transport.
+
+### Firewall and NAT for the peer-to-peer port
+The node listens on `30329` (TCP and UDP) for peer-to-peer traffic — distinct from Geth's default `30303`, and the port the published IDChain peer list uses. Open `30329/tcp` and `30329/udp` inbound on your host firewall, and forward both on your router/NAT if the host is behind one, so other IDChain nodes can dial in.
+
+### Contributing a peer entry
+The committed `idchain/static-nodes.json` is reviewed by pull request, not self-served: an entry is added after a reviewer connects to it and fetches a block, and removed after it fails to connect from two hosts on two different days. If your node needs more peers than the committed list provides, open a pull request adding your enode (from `admin.nodeInfo.enode`, read below) once someone else has verified it the same way — don't add unverified enodes yourself.
+
+### Checking sync readiness
+Compare your node's block hash at genesis (block 0) and at block 4,000,000 against `https://idchain.one/rpc/`'s `eth_getBlockByNumber` for the same heights. A match at both confirms you're on the same chain. Sync time depends on how many peers you have and how fast they are — expect single digit hours from one slow peer; the peer list above is the remedy if it's taking too long.
+
+To read your node's enode (for backup, or to share it if you're contributing a peer entry), attach over IPC rather than opening `admin` on RPC:
+```sh
+docker compose exec geth geth attach --exec 'admin.nodeInfo.enode' /data/geth.ipc
+```
+
+### Cutover
+Run this on the same host as your Aura node: RPC is published on `127.0.0.1` only, and `consensus_receiver`, `consensus_sender` and `updater` use the host's network. Once your node is synced and has at least one live peer, set these four variables in `config.env`:
+
+- `BN_CONSENSUS_INFURA_URL=ws://127.0.0.1:8546` (the name is legacy; this is IDChain traffic)
+- `BN_CONSENSUS_IDCHAIN_RPC_URL=http://127.0.0.1:8545/`
+- `BN_UPDATER_IDCHAIN_WSS=ws://127.0.0.1:8546`
+- `BN_UPDATER_SEED_GROUPS_WS_URL=ws://127.0.0.1:8546`
+
+Then, from the repository root:
+```sh
+docker compose build consensus_receiver updater
+docker compose up -d consensus_receiver consensus_sender updater
+```
+`lastProcessedBlock` in `/brightid/v6/state` should keep advancing with `idchain.one` unreachable from the host.
+
+The four variables cover the node's own IDChain calls. Apps carry their own RPC endpoints, stored with each app in the node's database; those are unaffected by cutover.
+
+### Rollback
+Set `BN_CONSENSUS_IDCHAIN_RPC_URL` back to `https://idchain.one/rpc/` and the other three (`BN_CONSENSUS_INFURA_URL`, `BN_UPDATER_IDCHAIN_WSS`, `BN_UPDATER_SEED_GROUPS_WS_URL`) back to `wss://idchain.one/ws/`, then recreate the same three services. Your IDChain node itself can keep running or be stopped independently — it isn't part of the rollback.

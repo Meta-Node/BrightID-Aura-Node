@@ -41,8 +41,8 @@ The node's enode public key SHALL be unchanged when the container is recreated w
 - **THEN** `admin.nodeInfo.enode` over IPC reports the same public key
 
 ### Requirement: Complete cutover
-An Aura node SHALL use the local IDChain node for all IDChain traffic when `BN_CONSENSUS_INFURA_URL`, `BN_CONSENSUS_IDCHAIN_RPC_URL`, `BN_UPDATER_IDCHAIN_WSS` and `BN_UPDATER_SEED_GROUPS_WS_URL` point at it.
+An Aura node SHALL use the local IDChain node for all of its own IDChain traffic when `BN_CONSENSUS_INFURA_URL`, `BN_CONSENSUS_IDCHAIN_RPC_URL`, `BN_UPDATER_IDCHAIN_WSS` and `BN_UPDATER_SEED_GROUPS_WS_URL` point at it. RPC endpoints that apps declare for themselves are outside this requirement.
 
 #### Scenario: Default endpoint unreachable
 - **WHEN** the four variables point at a synced local node, the `consensus_receiver`, `consensus_sender` and `updater` services are recreated, and `idchain.one` is blocked from the host
-- **THEN** `lastProcessedBlock` advances, a submitted operation is confirmed, and the updater's IDChain checks continue
+- **THEN** `lastProcessedBlock` advances, a submitted operation is confirmed, and the updater's checks that use those variables continue
