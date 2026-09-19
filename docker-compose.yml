@@ -1,4 +1,3 @@
-version: '3.2'
 services:
   ws:
     build: web_services
@@ -10,6 +9,7 @@ services:
       - config.env
     expose:
       - 3000
+    restart: unless-stopped
 
   scorer:
     build: scorer
@@ -26,6 +26,7 @@ services:
       - config.env
     environment:
       - INIT_BRIGHTID_DB
+    restart: unless-stopped
 
   consensus_receiver:
     build: consensus
@@ -42,6 +43,7 @@ services:
       - config.env
     environment:
       RUN_TYPE: "RECEIVER"
+    restart: unless-stopped
 
   consensus_sender:
     build: consensus
@@ -54,6 +56,7 @@ services:
       - config.env
     environment:
       RUN_TYPE: "SENDER"
+    restart: unless-stopped
 
   updater:
     build: updater
@@ -63,6 +66,7 @@ services:
     image: brightid/updater
     env_file:
       - config.env
+    restart: unless-stopped
 
   db:
     build: db
@@ -77,6 +81,7 @@ services:
       - INIT_BRIGHTID_DB
     expose:
       - 8529
+    restart: unless-stopped
 
   web:
     image: nginx
@@ -86,6 +91,7 @@ services:
     network_mode: host
     env_file:
       - config.env
+    restart: unless-stopped
 
 volumes:
   snapshots:

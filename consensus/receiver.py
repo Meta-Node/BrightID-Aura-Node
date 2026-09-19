@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import socket
 import json
@@ -17,6 +18,7 @@ w3 = Web3(Web3.WebsocketProvider(config.INFURA_URL))
 w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 NUM_SEALERS = 0
+SNAPSHOT_FNL_RE = re.compile(r"^dump_(\d+)_fnl$")
 
 
 def hash(op):
@@ -73,7 +75,40 @@ def process_op(op):
         raise Exception("Error from apply service")
 
 
+def remove_unfinished_snapshots():
+    for name in os.listdir(config.SNAPSHOTS_DIR):
+        path = os.path.join(config.SNAPSHOTS_DIR, name)
+        if name.startswith("dump_") and not name.endswith("_fnl") and os.path.isdir(path):
+            print(f"removing unfinished snapshot {name}")
+            shutil.rmtree(path, ignore_errors=True)
+
+
+def completed_snapshots():
+    snapshots = []
+    for name in os.listdir(config.SNAPSHOTS_DIR):
+        match = SNAPSHOT_FNL_RE.match(name)
+        if match and os.path.isdir(os.path.join(config.SNAPSHOTS_DIR, name)):
+            snapshots.append((int(match.group(1)), name))
+    snapshots.sort()
+    return snapshots
+
+
+def enforce_snapshot_cap():
+    snapshots = completed_snapshots()
+    while len(snapshots) >= config.MAX_PENDING_SNAPSHOTS:
+        _, oldest = snapshots.pop(0)
+        oldest_path = os.path.join(config.SNAPSHOTS_DIR, oldest)
+        del_path = os.path.join(config.SNAPSHOTS_DIR, f"{oldest}_del")
+        print(f"deleting oldest pending snapshot {oldest}")
+        try:
+            os.rename(oldest_path, del_path)
+        except OSError:
+            continue
+        shutil.rmtree(del_path, ignore_errors=True)
+
+
 def save_snapshot(block):
+    enforce_snapshot_cap()
     dir_name = config.SNAPSHOTS_PATH.format(block)
     fnl_dir_name = f"{dir_name}_fnl"
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -119,6 +154,7 @@ def wait_for_sealer_count():
 
 
 def main():
+    remove_unfinished_snapshots()
     wait_for_sealer_count()
     variables = db.collection("variables")
     last_block = variables.get("LAST_BLOCK")["value"]
