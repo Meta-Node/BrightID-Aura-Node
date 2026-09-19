@@ -27,15 +27,15 @@ snapshot it has just processed.
 
 #### Scenario: VERIFICATION_BLOCK left ahead of the snapshot
 - **WHEN** `VERIFICATION_BLOCK` holds a block number higher than the snapshot
-  being processed — as a snapshot left in `/snapshots` across a database
-  re-initialization leaves it, since its block belongs to a timeline the
-  database no longer occupies
+  being processed — as it does after a re-initialization restores a backup
+  older than snapshots still present in `/snapshots`
 - **THEN** the verifications written for the snapshot just processed survive,
   and only verifications below that snapshot's block are removed
 
 This requirement covers the rows in the collection, not which block the API
 answers from. The served block is the highest key in `VERIFICATIONS_HASHES`,
-which a stale snapshot also sets and this requirement does not address.
+which a higher-numbered snapshot also sets and this requirement does not
+address. Both resolve once the receiver re-reaches that block number.
 
 ### Requirement: Receiver never blocks on snapshot backlog
 `consensus_receiver` SHALL continue applying chain operations and creating

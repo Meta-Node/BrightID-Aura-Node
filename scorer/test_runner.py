@@ -23,21 +23,19 @@ with patch('arango.ArangoClient', MagicMock()):
 class TestRemovalBorder(unittest.TestCase):
     """
     process() writes this snapshot's verifications, then prunes everything
-    below VERIFICATION_BLOCK. That read is the previous snapshot's block in
-    normal operation, but a stale snapshot - one left in /snapshots across a
-    database re-initialization, carrying a block number from the timeline the
-    database no longer occupies - sets VERIFICATION_BLOCK *ahead* of the
-    blocks that follow. The prune then deletes the rows just written.
+    below VERIFICATION_BLOCK. In normal operation that read is the previous
+    snapshot's block, so the prune leaves the rows just written alone.
 
-    What that costs: seed_connected.last_verifications() reads the rows at
-    VERIFICATION_BLOCK to carry seed-group quota counts forward, and finds
-    nothing once they are gone, restarting every count at zero.
+    It does not when the snapshot being processed is numbered BELOW
+    VERIFICATION_BLOCK, which happens after a re-initialization restores a
+    backup older than snapshots still sitting in /snapshots. The border then
+    runs past the block just processed and deletes its rows.
+    seed_connected.last_verifications() reads those rows to carry seed-group
+    quota counts forward and restarts every count at zero without them.
 
-    What it does not fix: which block the API answers from. That is
-    VERIFICATIONS_HASHES, whose highest key wins in both
-    update_verifications_hashes() here and userVerifications() in
-    web_services/foxx/v6/db.js - so a stale block stays the highest key and
-    keeps being served whether or not this prune is capped.
+    That state resolves itself once the receiver re-reaches the higher block
+    number, so this is an invariant rather than a fix for a live hazard: the
+    prune border never exceeds the block just processed.
     """
 
     def setUp(self):

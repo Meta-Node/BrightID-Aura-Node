@@ -87,9 +87,10 @@ def process(snapshot):
     update_verifications_hashes(block)
     last_block = variables.get('VERIFICATION_BLOCK')['value']
     # Keep this snapshot's verifications and the previous one's. The border
-    # never passes this block: a stale snapshot left in /snapshots across a
-    # database re-initialization sets VERIFICATION_BLOCK ahead of the blocks
-    # that follow, and the prune would then delete the rows written above.
+    # never passes this block: after a re-initialization restores a backup
+    # older than snapshots still in /snapshots, VERIFICATION_BLOCK sits above
+    # the blocks that follow, and the prune would delete the rows written
+    # above.
     remove_verifications_before(min(last_block, block))
     variables.update({'_key': 'VERIFICATION_BLOCK', 'value': block})
     # remove the snapshot file
