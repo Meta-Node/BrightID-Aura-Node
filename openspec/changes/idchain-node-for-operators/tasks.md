@@ -1,12 +1,12 @@
 ## 1. Node files
 
 - [x] 1.1 Add `idchain/Dockerfile`, `idchain/docker-compose.yml`, `idchain/idchain-genesis.json`, `idchain/static-nodes.json` (entries per D4 only). Verify: `docker compose -f idchain/docker-compose.yml build` succeeds on a clean checkout; the build log records commit and digest.
-- [x] 1.2 Start from the committed files. Verify every spec scenario except cutover: chain id, peers, checkpoint hashes at 1 and 4,000,000, loopback-only on both transports, restricted methods on both transports, identity after recreate.
+- [x] 1.2 Start from the committed files. Verify every spec scenario except cutover: chain id, peers, checkpoint hashes at genesis (block 0) and 4,000,000, loopback-only on both transports, restricted methods on both transports, identity after recreate.
 
 ## 2. Code
 
 - [x] 2.1 `updater/config.py`: `IDCHAIN_RPC_URL = os.environ['BN_CONSENSUS_IDCHAIN_RPC_URL']`; `updater/entrypoint.sh` passes that variable to the cron jobs. Verify: `docker compose build updater` and the updater starts against the default.
-- [x] 2.2 `consensus/receiver.py`: inject PoA middleware unconditionally. Verify: `docker compose build consensus` and `consensus_receiver` advances against the default.
+- [x] 2.2 `consensus/receiver.py`: inject PoA middleware unconditionally. Verify: `docker compose build consensus_receiver` and `consensus_receiver` advances against the default.
 
 ## 3. Guide
 

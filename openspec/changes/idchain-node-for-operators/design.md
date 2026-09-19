@@ -8,7 +8,7 @@ See proposal.md — Why. Observed 2026-09-09 from one host: tag `idc1.9.18` buil
 
 **Non-Goals:** validator setup; client upgrades; public RPC hosting; IDChain's future; app-declared RPC endpoints.
 
-**Out of scope — app-declared RPC endpoints.** The `snapshot` app's stored `rpcEndpoint` is `wss://idchain.one/ws/`, so sponsorship polling still reaches `idchain.one` after cutover. That field is third-party data, resynced whole from `APPS_JSON_API_URL` on every cycle (`updater/apps.py`), so substituting on a literal string match would be the same brittleness D3 removes from the hostname checks, and would catch only this one app. Correctness is unaffected: cutover requires a checkpoint-verified node on the same chain, so the app's events read the same whichever endpoint answers.
+**Out of scope — app-declared RPC endpoints.** The `snapshot` app's stored `rpcEndpoint` is `wss://idchain.one/ws/`, so sponsorship polling still reaches `idchain.one` after cutover. That field is per-app data the node does not own — `updater/apps.py` neither sets nor overwrites it (`row_to_app()` omits it; the upsert uses `overwriteMode: "update"`) — so substituting on a literal string match would be the same brittleness D3 removes from the hostname checks, and would catch only this one app. Correctness is unaffected: cutover requires a checkpoint-verified node on the same chain, so the app's events read the same whichever endpoint answers.
 
 ## Decisions
 
