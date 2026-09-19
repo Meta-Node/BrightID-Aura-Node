@@ -1,3 +1,5 @@
+# Compose v1 (`docker-compose`) requires this; Compose v2 ignores it as obsolete.
+version: '3.2'
 services:
   ws:
     build: web_services
