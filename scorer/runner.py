@@ -87,7 +87,7 @@ def process(snapshot):
     update_verifications_hashes(block)
     last_block = variables.get('VERIFICATION_BLOCK')['value']
     # only keep verifications for this snapshot and previous one
-    remove_verifications_before(last_block)
+    remove_verifications_before(min(last_block, block))
     variables.update({'_key': 'VERIFICATION_BLOCK', 'value': block})
     # remove the snapshot file
     shutil.rmtree(fname, ignore_errors=True)
