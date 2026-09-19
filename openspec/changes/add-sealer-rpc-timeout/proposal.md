@@ -22,4 +22,4 @@ None.
 
 - **Operators:** an RPC endpoint that stops answering no longer freezes the receiver silently. Mid-run, the receiver logs `Error from update_num_sealers`, keeps the sealer count it already has, and goes on applying blocks. At startup it logs, waits 5 seconds and tries again, as it already does for any other failed read.
 - An endpoint that takes longer than 10 seconds to accept a connection, or goes silent for longer than 10 seconds while answering `clique_status`, is now treated as a failed read. A node pointed at one would log errors instead of waiting, and at startup would not begin applying blocks until a read succeeds.
-- No new setting, no `config.env` or compose change, no change to `docs/installation-guide.md`. Upgrade is a rebuild of the `brightid/consensus` image.
+- No new setting, no `config.env` or compose change, no change to `docs/installation-guide.md`. Upgrade is a rebuild of the `brightid/consensus` image and a recreate of the receiver: `docker compose up -d --build --no-deps consensus_receiver`.

@@ -58,7 +58,6 @@ around the call, out of proportion to a read of a few hundred bytes.
   longer than 10 seconds. → Accepted under D2.
 - While catching up, an endpoint that does not answer costs about 10 seconds
   per 100 blocks. → Accepted; before this change it cost forever.
-- #46 (`philip/idchain-node`) and #47 (`philip/snapshot-backlog-cap`) also edit
-  `receiver.py`. A trial merge with #46 is clean; #47 adds its own constant
-  directly after `NUM_SEALERS = 0`, so whichever of #47 and this merges second
-  takes a trivial merge: keep both lines.
+- #46 (`philip/idchain-node`) also edits `receiver.py`; a trial merge with it is
+  clean. #47 has merged: its constant `SNAPSHOT_FNL_RE` now sits directly after
+  `IDCHAIN_RPC_TIMEOUT`, both kept.
