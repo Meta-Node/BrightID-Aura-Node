@@ -24,3 +24,24 @@ On a host where Docker is enabled at boot, a node started with `docker compose u
 #### Scenario: Operator stops the node deliberately
 - **WHEN** the operator runs `docker compose stop` and the host later reboots
 - **THEN** the services stay stopped
+
+### Requirement: A re-initialisation request is served once
+`INIT_BRIGHTID_DB=1` SHALL re-initialise the database and clear `/snapshots`
+once. A later start of the same container SHALL NOT do either again, however
+it was started.
+
+#### Scenario: The node restarts after a re-initialisation
+- **WHEN** an operator re-initialises, and a container later starts again -
+  a crash, a host reboot, or `docker compose stop` followed by
+  `docker compose up -d`
+- **THEN** the database is not re-initialised and `/snapshots` is not cleared
+
+#### Scenario: Re-initialising again
+- **WHEN** the operator runs the re-initialisation command again, which
+  recreates the `db` and `scorer` containers
+- **THEN** the database is re-initialised
+
+#### Scenario: Fresh volume with no request
+- **WHEN** the node starts on an empty data volume and `INIT_BRIGHTID_DB` is
+  not set
+- **THEN** the database still initialises itself from the upstream backup

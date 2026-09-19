@@ -125,16 +125,22 @@ If new [BrightID-Node-docker](#download-brightid-node-docker-release) is release
 The node database is initialized by fetching the latest hourly backup of [official BrightID node](http://node.brightid.org/brightid/v5/state) when you run the node for the first time. Pulling new images and running them in upgrade process will not re-initialize the node. The node database can be re-initialized using the following command when your node was down for a long time or there are other problems.
 
 ```sh
-INIT_BRIGHTID_DB=1 docker-compose up -d
+INIT_BRIGHTID_DB=1 docker compose up -d --force-recreate db scorer
 ```
+
+A re-initialization request is served once. The containers keep
+`INIT_BRIGHTID_DB=1` in their environment afterwards, but they will not act on
+it again - a crash, a reboot, or `docker compose stop` followed by
+`docker compose up -d` leaves the database alone. `--force-recreate` is what
+makes a new request, so the command above works the first time and every time
+after.
 
 **Important - on an Aura node, re-initializing destroys Aura evaluations.** The upstream backup does not carry the `auraEvaluations` array this repository stores on `connections` documents, so restoring it erases every Aura evaluation the node holds. This has been confirmed on a live node. Before re-initializing a node that holds evaluations:
 
 1. Bring the node up *without* initializing (`docker compose up -d`).
 2. Export every connection with `auraEvaluations != null` to a JSON file.
-3. Stop the database with `docker compose stop db`.
-4. Re-initialize with the command above.
-5. Re-import the exported evaluations.
+3. Re-initialize with the command above.
+4. Re-import the exported evaluations.
 
 The export and import tooling is not part of this repository; ask the Aura maintainers for it.
 

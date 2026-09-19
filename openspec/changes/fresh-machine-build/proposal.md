@@ -7,6 +7,7 @@ A clean `docker compose build` of this repository fails while installing the Fox
 - `db/Dockerfile`: base image `alpine:3.14` becomes `alpine:3.22`; `nodejs` and `npm` install from that release's own repositories.
 - `docker-compose.yml`: every service gets `restart: unless-stopped`; the obsolete top-level `version:` key is removed.
 - `docs/installation-guide.md`: a "Building from this repository" section is added and the existing tarball/Docker Hub instructions are scoped to `BrightID/BrightID-Node`'s published images.
+- `db/docker-entrypoint.sh`, `scorer/config.py`: a re-initialisation request is served once per container, so the restart policy above cannot turn `INIT_BRIGHTID_DB=1` into an unattended re-initialisation.
 
 ## Capabilities
 

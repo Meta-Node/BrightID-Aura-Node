@@ -14,13 +14,16 @@
 
 **D2. `restart: unless-stopped`.** Containers return when the daemon starts, and containers the operator stopped stay stopped. `always` would override a deliberate stop; `on-failure` does not cover a reboot.
 
+**D4. A marker makes a re-initialisation request one-shot.** `INIT_BRIGHTID_DB` is baked into a container when it is created, so under D2 every later start - crash, reboot, or an ordinary `stop` and `up -d` - would re-restore the backup and clear `/snapshots`. `db` and `scorer` each write a marker after acting on the request and skip while it is present. The marker sits outside the data and snapshots volumes, in the container's writable layer, so recreating the container arms it again; on a volume it would outlive recreation and the node could never be re-initialised again.
+*Rejected:* documenting a second command to recreate the containers without the variable, which leaves the node one forgotten step from re-initialising itself; and reading a marker instead of the variable, which leaves nothing to ask with.
+
 **D3. Scope the existing instructions and add this repository's.** The tarball/Docker Hub section is labelled as the published-image path for `BrightID/BrightID-Node`; a new section covers cloning, `config.env`, `docker compose build`, and first start.
 
 ## Risks / Trade-offs
 
 - [Newer userland under ArangoDB] → ArangoDB 3.9.1 is statically linked; the entrypoint's tools (`gpg`, `ar`, `tar`, `numactl`, `pwgen`) are available in 3.22. Verified on one host as above, not across hosts.
 - [Removing `version:`] → Compose v2 ignores it and warns; Compose v1 is end of life.
-- [`INIT_BRIGHTID_DB` left at `1`] → `db` re-restores the backup and `scorer` clears `/snapshots` on every start, so under D2 a crash or reboot would do the same. First start does not set it - the entrypoint initialises an empty volume on its own - so this only follows a deliberate re-initialisation.
+- [A second re-initialisation needs `--force-recreate`] → the marker in D4 persists across a stop and start, which is the same event to the container as a crash. Recreating the container is the only signal that distinguishes asking again from being restarted, so the guide's command carries the flag and works uniformly.
 
 ## Migration Plan
 
