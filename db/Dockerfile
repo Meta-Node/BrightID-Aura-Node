@@ -1,5 +1,5 @@
 # Edited from https://github.com/arangodb/arangodb-docker/blob/official/alpine/3.9.1/Dockerfile
-FROM alpine:3.14
+FROM alpine:3.22
 MAINTAINER Frank Celler <info@arangodb.com>
 
 ENV ARANGO_VERSION 3.9.1
@@ -13,14 +13,11 @@ ENV ARANGO_SIGNATURE_URL ${ARANGO_PACKAGE_URL}.asc
 #   https://www.arangodb.com/docs/3.9/programs-arangod-server.html#managing-endpoints
 #   https://www.arangodb.com/docs/3.9/programs-arangod-log.html
 
-# nodejs/npm come from Alpine 3.18's repos, not 3.14's (this image's base) -
-# 3.14 only ships Node 14, too old for foxx-cli's dependency tree, which now
-# requires Node >=18. This must run before any other apk package: if an
-# older libstdc++/libssl from 3.14's own repo installs first, apk treats
-# that as satisfying node's dependency even though the ABI doesn't match,
-# and node fails at runtime with "Error relocating /usr/bin/node: symbol
-# not found". Installing node/npm first avoids that.
-RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/v3.18/community --repository=https://dl-cdn.alpinelinux.org/alpine/v3.18/main nodejs npm && \
+# nodejs/npm come from this image's own Alpine release (3.22 ships Node 22;
+# foxx-cli needs >=18). Installing them from another release's repos, as
+# this file did on 3.14, passes apk's dependency check but fails at runtime:
+# "Error relocating /usr/bin/node: symbol not found".
+RUN apk add --no-cache nodejs npm && \
     apk add --no-cache gnupg pwgen binutils numactl numactl-tools && \
     npm install -g foxx-cli@2.1.1 && \
     mv "$(command -v foxx)" /usr/local/bin/foxx-real && \
