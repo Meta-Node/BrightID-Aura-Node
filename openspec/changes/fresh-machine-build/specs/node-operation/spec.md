@@ -11,7 +11,7 @@ The node's images SHALL build with `docker compose build` from a fresh clone on 
 - **THEN** every service image builds successfully
 
 #### Scenario: First start after the build
-- **WHEN** the operator has set `BN_SEED` and `BN_UPDATER_MAINNET_WSS` in `config.env` and runs `INIT_BRIGHTID_DB=1 docker compose up -d` with internet access
+- **WHEN** the operator has set `BN_SEED` and `BN_UPDATER_MAINNET_WSS` in `config.env` and runs `docker compose up -d` with internet access
 - **THEN** all seven services reach `running`, and `/brightid/v6/state` answers with `lastProcessedBlock` advancing
 
 ### Requirement: Recovers from a host restart

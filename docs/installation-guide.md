@@ -165,19 +165,10 @@ docker compose build
 This builds the six services that declare a `build:` context (`ws`, `scorer`, `consensus_receiver`/`consensus_sender`, `updater`, `db`) from source; `web` uses the published `nginx` image as-is. The Foxx services (`web_services/foxx/`) ship as pre-built zips; `scripts/build-foxx.sh` rebuilds them (see the [Development Guide](development-guide.md)).
 
 ### Start the node
-For the first start, initialize the database from the latest hourly backup of the [official BrightID node](http://node.brightid.org/brightid/v5/state):
 ```sh
-INIT_BRIGHTID_DB=1 docker compose up -d
-```
-Check state as [above](#check-logs-and-state); `/brightid/v6/state` should answer and `lastProcessedBlock` should advance.
-
-**Important:** `INIT_BRIGHTID_DB=1` stays in the `db` and `scorer` containers' environment, and both act on it at *every* start, not just the first: `db` re-downloads and restores the backup, `scorer` clears `/snapshots`. With `restart: unless-stopped` (below), a crash or reboot would do that too. Once the first start succeeds, recreate the containers without it:
-```sh
-unset INIT_BRIGHTID_DB
 docker compose up -d
 ```
-
-On an Aura node, an unintended re-initialization also destroys Aura evaluations - see [Re-initialize](#re-initialize).
+On a fresh machine the database initializes itself from the latest hourly backup of the [official BrightID node](http://node.brightid.org/brightid/v5/state). Check state as [above](#check-logs-and-state); `/brightid/v6/state` should answer and `lastProcessedBlock` should advance.
 
 ### Restart behaviour
 Every service runs with `restart: unless-stopped`. Services come back automatically if a container exits unexpectedly or the host reboots (with Docker enabled at boot), while a deliberate `docker compose stop` is respected - those services stay stopped, including across a subsequent host reboot.

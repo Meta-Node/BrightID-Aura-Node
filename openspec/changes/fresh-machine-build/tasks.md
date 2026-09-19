@@ -10,7 +10,7 @@
 
 ## 3. Install guide
 
-- [ ] 3.1 In `docs/installation-guide.md`, label the tarball/Docker Hub section as the published-image path for `BrightID/BrightID-Node` and add "Building from this repository" (clone, `config.env`, `docker compose build`, `INIT_BRIGHTID_DB=1 docker compose up -d`, restart behaviour); verify by following the new section verbatim on a clean host through to `/brightid/v6/state` answering.
+- [ ] 3.1 In `docs/installation-guide.md`, label the tarball/Docker Hub section as the published-image path for `BrightID/BrightID-Node` and add "Building from this repository" (clone, `config.env`, `docker compose build`, `docker compose up -d`, restart behaviour); verify by following the new section verbatim on a clean host through to `/brightid/v6/state` answering.
 
 ## 4. Tests
 
