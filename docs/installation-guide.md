@@ -100,6 +100,8 @@ curl http://<your-server-address>/brightid/v6/state
 ```
 When the node is synced, `lastProcessedBlock` should be equal to the total number of IDChain blocked that can be checked from [here](https://explorer.idchain.one/). `verificationsBlock` should also be updated in 240 blocks intervals if `scorer` is active.
 
+When the node runs from this repository's `docker-compose.yml`, the `web` service's logs are capped at approximately 30MB (`max-size: "10m"`, `max-file: "3"` in `docker-compose.yml`) so its log file can't grow without bound. Raise the cap by editing those values for the `web` service in `docker-compose.yml`. This setting replaces the daemon's default logging driver and rotation limits for this container: if your Docker daemon forwards container logs to a remote collector, `web`'s logs stop going there once it is recreated. Recreating the container (for example, via `docker compose up -d web`) also removes its old log. To keep it, first run this from the node's directory: `docker compose logs --no-color --timestamps web > web-nginx-logs-<date>.txt`.
+
 ### Send Eidi
 
 Make sure the consensus sender address has enough Eidi (IDChain native token) for gas to write operations to IDChain.
