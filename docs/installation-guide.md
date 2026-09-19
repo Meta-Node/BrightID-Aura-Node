@@ -158,6 +158,9 @@ docker-compose run --rm db arangod --database.auto-upgrade
 
 This path builds this repository's images from source, rather than pulling `BrightID/BrightID-Node`'s published images. Use it when running this repository directly (for example, an Aura node) rather than the upstream published node.
 
+### Requirements
+Docker Compose **v2** (the `docker compose` plugin - note the space, not the hyphenated `docker-compose`). This repository's `docker-compose.yml` carries no top-level `version:` key, which Compose v2 no longer wants. Compose v1 cannot read such a file at all: it falls back to its legacy format, reads the top-level `services:` and `volumes:` keys as service names, and fails with `Unsupported config option for services` / `for volumes`. If `docker compose version` does not answer, install the plugin (`apt-get install docker-compose-plugin` on Debian/Ubuntu).
+
 ### Clone the repository
 ```sh
 git clone <this repository's URL>
