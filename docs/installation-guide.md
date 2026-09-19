@@ -159,7 +159,17 @@ docker-compose run --rm db arangod --database.auto-upgrade
 This path builds this repository's images from source, rather than pulling `BrightID/BrightID-Node`'s published images. Use it when running this repository directly (for example, an Aura node) rather than the upstream published node.
 
 ### Requirements
-Docker Compose **v2** (the `docker compose` plugin - note the space, not the hyphenated `docker-compose`). This repository's `docker-compose.yml` carries no top-level `version:` key, which Compose v2 no longer wants. Compose v1 cannot read such a file at all: it falls back to its legacy format, reads the top-level `services:` and `volumes:` keys as service names, and fails with `Unsupported config option for services` / `for volumes`. If `docker compose version` does not answer, install the plugin (`apt-get install docker-compose-plugin` on Debian/Ubuntu).
+Docker Compose **v2** - the `docker compose` plugin, with a space, not the hyphenated `docker-compose`. If `docker compose version` does not answer, install it (`apt-get install docker-compose-plugin` on Debian/Ubuntu).
+
+This repository's `docker-compose.yml` carries no top-level `version:` key. An older `docker-compose` v1 cannot read such a file: it falls back to its legacy format, in which top-level keys are service names, so it reads `services:` and `volumes:` as two services and rejects their children:
+
+```
+ERROR: The Compose file './docker-compose.yml' is invalid because:
+Unsupported config option for services: 'db'
+Unsupported config option for volumes: 'snapshots'
+```
+
+(The service and volume it names vary.) Not every v1 build fails this way - 1.25.5 does, 1.29.2 does not - so use v2 rather than guessing whether yours is new enough.
 
 ### Clone the repository
 ```sh
