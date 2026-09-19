@@ -33,6 +33,10 @@ snapshot it has just processed.
 - **THEN** the verifications written for the snapshot just processed survive,
   and only verifications below that snapshot's block are removed
 
+This requirement covers the rows in the collection, not which block the API
+answers from. The served block is the highest key in `VERIFICATIONS_HASHES`,
+which a stale snapshot also sets and this requirement does not address.
+
 ### Requirement: Receiver never blocks on snapshot backlog
 `consensus_receiver` SHALL continue applying chain operations and creating
 snapshots at every `SNAPSHOTS_PERIOD` boundary regardless of how many
