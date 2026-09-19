@@ -12,11 +12,6 @@
       with 3 completed snapshots present, the scorer processes only the
       newest and the other 2 are deleted, unprocessed.
 
-- [x] 2.2 `scorer/runner.py`: cap the `remove_verifications_before` border at
-      the block just processed, so a `VERIFICATION_BLOCK` left ahead by a
-      stale snapshot cannot delete the verifications just written. Verify:
-      `scorer/test_runner.py` fails on the unguarded code and passes with it.
-
 ## 3. Receiver
 
 - [x] 3.1 `consensus/receiver.py`: on startup, remove every `dump_*`
