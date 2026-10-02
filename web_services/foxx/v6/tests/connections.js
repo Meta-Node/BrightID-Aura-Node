@@ -129,6 +129,17 @@ describe("connections", function () {
     a.level.should.equal("already known")
   })
 
+  it("should return a neighbor that has no user document", function () {
+    db.connect({ id1: "a", id2: "ghost", level: "just met", timestamp })
+    usersColl.remove("ghost")
+    const conns = db.userConnections("a", "outbound", true)
+    const ghost = conns.find((c) => c.id === "ghost")
+    should.exist(ghost)
+    ghost.verifications.should.deep.equal([])
+    const known = conns.find((c) => c.id === "b")
+    known.verifications.should.be.an("array")
+  })
+
   it("should be able to report someone as replaced", function () {
     db.connect({
       id1: "c",

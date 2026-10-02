@@ -138,7 +138,9 @@ function userConnections(userId, direction, withVerifications = false) {
       if (withVerifications) {
         return {
           ...obj,
-          verifications: userVerifications(id),
+          // Aura-only edges can name a brightid that has no users document.
+          // A missing neighbor must not 404 the whole connection list.
+          verifications: readUserVerifications(id),
         };
       }
       return obj;
@@ -501,6 +503,10 @@ function appToDic(app) {
 
 function userVerifications(userId) {
   checkUserExists(userId);
+  return readUserVerifications(userId);
+}
+
+function readUserVerifications(userId) {
   let verifications;
   if (variablesColl.exists("VERIFICATIONS_HASHES")) {
     let hashes = variablesColl.document("VERIFICATIONS_HASHES").hashes;
