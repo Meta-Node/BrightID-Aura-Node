@@ -26,8 +26,12 @@
 
 ## 4. Verify
 
-- [x] 4.1 The workflow passes against the zips committed on this branch after
-      task 1.4.
+- [ ] 4.1 The workflow passes against the zips committed on this branch after
+      task 1.4. Not yet done: the compare logic was replicated by hand, but the
+      workflow has never run on a GitHub runner, and the Mocha suites
+      `build-foxx.sh` runs have never executed (ArangoDB's amd64 binaries will
+      not run on the machine the zips were built on). The first CI run is the
+      verification.
 
 ## 5. Optional, not part of landing this change
 
