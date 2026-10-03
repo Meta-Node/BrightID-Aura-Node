@@ -5,11 +5,11 @@
 - [x] 1.2 `scripts/foxx-build-inner.sh`, `build_test_install`: normalize
       modification times on the staged tree; replace `zip -rq` with a sorted
       `find` list piped to `zip -X -q -@`; keep `-y` off (D1).
-- [ ] 1.3 Build all four zips twice from independent clean checkouts in the
+- [x] 1.3 Build all four zips twice from independent clean checkouts in the
       pinned image; confirm each pair is byte-for-byte identical (D2).
-- [ ] 1.4 Rebuild and recommit `brightid5.zip`, `apply5.zip`, `brightid6.zip`,
+- [x] 1.4 Rebuild and recommit `brightid5.zip`, `apply5.zip`, `brightid6.zip`,
       `apply6.zip` under the new packaging.
-- [ ] 1.5 Confirm the recommitted archives still unzip to the same file
+- [x] 1.5 Confirm the recommitted archives still unzip to the same file
       contents, including dereferenced `node_modules/.bin` entries.
 
 ## 2. Workflow
@@ -26,7 +26,7 @@
 
 ## 4. Verify
 
-- [ ] 4.1 The workflow passes against the zips committed on this branch after
+- [x] 4.1 The workflow passes against the zips committed on this branch after
       task 1.4.
 
 ## 5. Optional, not part of landing this change
