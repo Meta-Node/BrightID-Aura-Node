@@ -4,8 +4,20 @@ set -e
 
 echo "BN_ARANGO_EXTRA_OPTS: $BN_ARANGO_EXTRA_OPTS"
 
-if [ "$INIT_BRIGHTID_DB" == "1" ] || [ ! -f /var/lib/arangodb3/ENGINE ]; then
-    INIT_BRIGHTID_DB=1
+# INIT_BRIGHTID_DB is baked into the container when it is created, so every
+# later start of that container sees it again - an ordinary stop/start, a
+# reboot, or the restart policy. The marker records that this container has
+# already served the request. It lives outside the data volume, so recreating
+# the container - which is what asking again does - arms it once more.
+BRIGHTID_INIT_MARKER=/var/local/brightid-initialized
+DO_INIT=
+
+if { [ "$INIT_BRIGHTID_DB" = "1" ] && [ ! -f "$BRIGHTID_INIT_MARKER" ]; } \
+   || [ ! -f /var/lib/arangodb3/ENGINE ]; then
+    DO_INIT=1
+fi
+
+if [ "$DO_INIT" = "1" ]; then
     echo "Loading brightid dump for initial start..."
     wget https://explorer.brightid.org/backups/brightid.tar.gz
     tar xvzf brightid.tar.gz
@@ -60,7 +72,7 @@ if [ "$1" = 'arangod' ]; then
         echo "Using encrypted database"
         sed -i /tmp/arangod.conf -e "s;^.*encryption-keyfile.*;encryption-keyfile=$ARANGO_ENCRYPTION_KEYFILE;"
     fi
-    if [ "$INIT_BRIGHTID_DB" == "1" ] || ([ ! -f /var/lib/arangodb3/SERVER ] && [ "$SKIP_DATABASE_INIT" != "1" ]); then
+    if [ "$DO_INIT" = "1" ] || ([ ! -f /var/lib/arangodb3/SERVER ] && [ "$SKIP_DATABASE_INIT" != "1" ]); then
         if [ ! -z "$ARANGO_ROOT_PASSWORD_FILE" ]; then
             if [ -f "$ARANGO_ROOT_PASSWORD_FILE" ]; then
                 ARANGO_ROOT_PASSWORD="$(cat $ARANGO_ROOT_PASSWORD_FILE)"
@@ -175,6 +187,8 @@ if [ "$1" = 'arangod' ]; then
         fi
 
         echo "Database initialized...Starting System..."
+        mkdir -p "$(dirname "$BRIGHTID_INIT_MARKER")"
+        touch "$BRIGHTID_INIT_MARKER"
     fi
 
     # if we really want to start arangod and not bash or any other thing

@@ -5,7 +5,7 @@
 ## What Changes
 
 - `scripts/foxx-builder.Dockerfile`: pin the `node:20-alpine` base by digest and pin the `apk add` package versions.
-- `scripts/foxx-build-inner.sh`: package deterministically — normalize modification times on the staged tree, feed `zip` a sorted file list instead of letting `zip -r` walk the directory, and pass `-X`.
+- `scripts/foxx-build-inner.sh`: package deterministically — normalize modification times and permissions on the staged tree, feed `zip` a sorted list of files and symlinks instead of letting `zip -r` walk the directory, fail on a symlink to a directory, and pass `-X`.
 - `web_services/foxx/*.zip`: rebuild and recommit all four once, as part of this change.
 - New `.github/workflows/foxx-zips.yml`: on push/PR touching `web_services/foxx/**`, `scripts/build-foxx.sh`, `scripts/foxx-build-inner.sh`, `scripts/foxx-builder.Dockerfile`, or the workflow file, runs `scripts/build-foxx.sh` and fails, naming the mismatched zip, if any rebuilt zip differs byte-for-byte from the committed one.
 - `scripts/README.md`: a short section on the check, the fix when it fails (rerun `scripts/build-foxx.sh`, commit the result), and the rule that any future packaging change must preserve determinism.

@@ -9,7 +9,7 @@ There are various ways to set up an SSL reverse proxy in front of a BrightID nod
     ```
         listen 127.0.0.1:8080;
     ```
-    2. From your node checkout directory, run `docker-compose restart web` to pick up the changes.
+    2. From your node checkout directory, run `docker compose restart web` to pick up the changes.
     3. `docker ps -a` to ensure that `nginx` restarted successfully.
 3. Install `nginx`, `certbot`, and `python3-certbot-nginx`:
 ```

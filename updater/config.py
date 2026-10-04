@@ -21,7 +21,7 @@ RECHECK_CHUNK = 10
 
 APPS_JSON_API_URL = os.environ.get(
     "BN_UPDATER_PROJECTS_URL",
-    "https://aura-get-verified.vercel.app/api/projects/brightid-apps",
+    "https://aura.brightid.org/api/projects/brightid-apps",
 )
 
 BN_ARANGO_PROTOCOL = os.environ['BN_ARANGO_PROTOCOL']

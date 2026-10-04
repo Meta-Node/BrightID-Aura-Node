@@ -27,4 +27,4 @@ failure this fixes is size, not retention depth.
 `docker compose up -d web` recreates the container with the new logging config.
 Recreation removes the old container's directory, including its oversized
 `-json.log`. An operator who wants that history should capture it first with
-`docker logs --timestamps web > web-nginx-logs-<date>.txt 2>&1`.
+`docker compose logs --no-color --timestamps web > web-nginx-logs-<date>.txt`.

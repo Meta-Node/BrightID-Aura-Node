@@ -1,0 +1,47 @@
+## Purpose
+What an operator can rely on when building and running a node from this repository on a supported host, independent of any published images.
+
+## ADDED Requirements
+
+### Requirement: Builds from source on a clean host
+The node's images SHALL build with `docker compose build` from a fresh clone on a clean x86_64 Linux host running Docker Engine 29 and Compose v2 or later, with no build cache and no registry credentials.
+
+#### Scenario: First build on a new machine
+- **WHEN** an operator clones the repository on such a host and runs `docker compose build`
+- **THEN** every service image builds successfully
+
+#### Scenario: First start after the build
+- **WHEN** the operator has set `BN_SEED` and `BN_UPDATER_MAINNET_WSS` in `config.env` and runs `docker compose up -d` with internet access
+- **THEN** all seven services reach `running`, and `/brightid/v6/state` answers with `lastProcessedBlock` advancing
+
+### Requirement: Recovers from a host restart
+On a host where Docker is enabled at boot, a node started with `docker compose up -d` SHALL resume after a reboot without operator action.
+
+#### Scenario: Host reboots while the node is running
+- **WHEN** the host reboots
+- **THEN** all seven services return to `running` and `lastProcessedBlock` advances from where it stopped
+
+#### Scenario: Operator stops the node deliberately
+- **WHEN** the operator runs `docker compose stop` and the host later reboots
+- **THEN** the services stay stopped
+
+### Requirement: A re-initialisation request is served once
+`INIT_BRIGHTID_DB=1` SHALL re-initialise the database and clear `/snapshots`
+once. A later start of the same container SHALL NOT do either again, however
+it was started.
+
+#### Scenario: The node restarts after a re-initialisation
+- **WHEN** an operator re-initialises, and a container later starts again -
+  a crash, a host reboot, or `docker compose stop` followed by
+  `docker compose up -d`
+- **THEN** the database is not re-initialised and `/snapshots` is not cleared
+
+#### Scenario: Re-initialising again
+- **WHEN** the operator runs the re-initialisation command again, which
+  recreates the `db` and `scorer` containers
+- **THEN** the database is re-initialised
+
+#### Scenario: Fresh volume with no request
+- **WHEN** the node starts on an empty data volume and `INIT_BRIGHTID_DB` is
+  not set
+- **THEN** the database still initialises itself from the upstream backup

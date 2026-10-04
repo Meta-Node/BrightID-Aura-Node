@@ -209,6 +209,6 @@ Build and run the full stack (all services — `db`, `ws`, `scorer`,
 `consensus_receiver`, `consensus_sender`, `updater`, `web`):
 
 ```sh
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 ```
