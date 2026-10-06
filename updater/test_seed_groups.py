@@ -9,6 +9,7 @@ os.environ.setdefault('BN_UPDATER_IDCHAIN_WSS', 'wss://idchain.one/ws/')
 # idchain-node-for-operators case #38 identified; #38's implementation,
 # #46, fixes the sibling instance in consensus/receiver.py separately).
 os.environ['BN_UPDATER_SEED_GROUPS_WS_URL'] = 'wss://my-own-node.example.com/ws/'
+os.environ.setdefault('BN_CONSENSUS_IDCHAIN_RPC_URL', 'https://idchain.one/rpc/')
 os.environ.setdefault('BN_ARANGO_PROTOCOL', 'http')
 os.environ.setdefault('BN_ARANGO_HOST', 'localhost')
 os.environ.setdefault('BN_ARANGO_PORT', '8529')
