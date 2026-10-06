@@ -2,8 +2,9 @@
 
 **D1. Make packaging deterministic before adding any comparison.** In
 `scripts/foxx-build-inner.sh`, after the staging copy: normalize modification
-times and permissions on the staged tree (times to `${SOURCE_DATE_EPOCH:-0}`;
-files to 644, or 755 if executable); enumerate files and symlinks, with no
+times and permissions on the staged tree (times to a fixed `@0`, which zip
+stores as 1980-01-01, its earliest date; files to 644, or 755 if
+executable); enumerate files and symlinks, with no
 directory entries, using `find | LC_ALL=C sort`, and hand that list to `zip` on
 stdin (`zip -X -q -@`) instead of letting `zip -r` walk the directory; keep
 `-y` off so symlinks are stored dereferenced, as the committed archives
@@ -12,7 +13,9 @@ which would otherwise be stored as an empty entry. `-X` drops the extra fields
 (UID/GID, extended timestamps) but not the permission bits, which follow the
 checkout's umask. *Rejected:* `strip-nondeterminism` over the existing
 `zip -rq` output — another dependency in the builder image for what this step
-already does.
+already does. *Rejected:* `${SOURCE_DATE_EPOCH:-0}` — nothing sets it,
+`build-foxx.sh` doesn't pass it into the container, and any value other than
+the fixed one would make a build differ from the committed zips.
 
 **D2. "Byte-for-byte identical" means `cmp` reports no difference.** Two builds
 of one commit, run independently — separate checkouts, separate container

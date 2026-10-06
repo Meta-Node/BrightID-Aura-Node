@@ -1,0 +1,59 @@
+name: foxx-zips
+
+on:
+  push:
+    paths:
+      - 'web_services/foxx/**'
+      - 'scripts/build-foxx.sh'
+      - 'scripts/foxx-build-inner.sh'
+      - 'scripts/foxx-builder.Dockerfile'
+      - '.github/workflows/foxx-zips.yml'
+  pull_request:
+    paths:
+      - 'web_services/foxx/**'
+      - 'scripts/build-foxx.sh'
+      - 'scripts/foxx-build-inner.sh'
+      - 'scripts/foxx-builder.Dockerfile'
+      - '.github/workflows/foxx-zips.yml'
+
+jobs:
+  foxx-zips:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # build-foxx.sh writes the rebuilt zips over the committed ones in
+      # web_services/foxx. Move the committed copies aside, so a zip the
+      # build never writes shows up as missing instead of matching itself.
+      - name: Move the committed zips aside
+        run: |
+          for z in brightid5 apply5 brightid6 apply6; do
+            mv "web_services/foxx/$z.zip" "$RUNNER_TEMP/$z.zip"
+          done
+
+      - name: Build Foxx services
+        run: scripts/build-foxx.sh
+
+      # Runs even when the build step fails (e.g. a Mocha failure), so a
+      # stale zip is still named; the build step's failure still fails the job.
+      - name: Compare rebuilt zips with committed zips
+        if: success() || failure()
+        run: |
+          mismatched=""
+          for z in brightid5 apply5 brightid6 apply6; do
+            if [ ! -f "web_services/foxx/$z.zip" ]; then
+              echo "::error file=web_services/foxx/$z.zip::$z.zip was not rebuilt; see the build step"
+              mismatched="$mismatched $z.zip"
+            elif cmp "$RUNNER_TEMP/$z.zip" "web_services/foxx/$z.zip"; then
+              echo "$z.zip matches its source"
+            else
+              echo "::error file=web_services/foxx/$z.zip::$z.zip does not match its source; rerun scripts/build-foxx.sh and commit the result"
+              mismatched="$mismatched $z.zip"
+            fi
+          done
+          if [ -n "$mismatched" ]; then
+            echo "Mismatched:$mismatched"
+            exit 1
+          fi

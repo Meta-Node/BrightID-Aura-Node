@@ -10,7 +10,13 @@
 # ships Node 14, but yarn resolves foxx-cli's transitive dependency
 # @inquirer/external-editor, which now requires Node >=18. That's a
 # pre-existing issue unrelated to this build script.
-FROM node:20-alpine
+#
+# Pinned for reproducible zips (see scripts/README.md). The digest is the
+# multi-arch index for node:20-alpine as resolved from Docker Hub on
+# 2026-09-13 (Node 20.20.2 on Alpine 3.23.4); the apk versions are the ones
+# in Alpine v3.23 main for x86_64 on that date. When a pinned apk version is
+# dropped upstream the image build fails; re-pin both together.
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
 
 ENV ARANGO_VERSION=3.9.1
 ENV ARANGO_URL=https://download.arangodb.com/arangodb39/DEBIAN/amd64
@@ -18,7 +24,7 @@ ENV ARANGO_PACKAGE=arangodb3_${ARANGO_VERSION}-1_amd64.deb
 ENV ARANGO_PACKAGE_URL=${ARANGO_URL}/${ARANGO_PACKAGE}
 ENV ARANGO_SIGNATURE_URL=${ARANGO_PACKAGE_URL}.asc
 
-RUN apk add --no-cache gnupg pwgen binutils numactl numactl-tools zip && \
+RUN apk add --no-cache gnupg=2.4.9-r0 pwgen=2.08-r3 binutils=2.45.1-r0 numactl=2.0.18-r0 numactl-tools=2.0.18-r0 zip=3.0-r13 && \
     npm install -g foxx-cli@2.1.1 && \
     gpg --batch --keyserver keys.openpgp.org --recv-keys CD8CB0F1E0AD5B52E93F41E7EA93F5E56E751E9B && \
     cd /tmp && \

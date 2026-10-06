@@ -4,6 +4,27 @@ Tooling for this repo, as opposed to the Foxx application code it builds and
 deploys. This is a different kind of code from `web_services/foxx/v5/` and
 `v6/` and has its own, lighter test convention — see below.
 
+## Foxx zip verification
+
+`.github/workflows/foxx-zips.yml` runs on every push and pull request that
+touches `web_services/foxx/**`, `scripts/build-foxx.sh`,
+`scripts/foxx-build-inner.sh`, `scripts/foxx-builder.Dockerfile`, or the
+workflow itself. It keeps the committed zips, runs `scripts/build-foxx.sh`,
+and `cmp`s each rebuilt zip against its committed copy. Any difference fails
+the check and names the zip: the source changed without a rebuild.
+
+**If the check fails:** run `scripts/build-foxx.sh` and commit the four zips
+it writes.
+
+**Packaging must stay deterministic.** The check only works because two
+builds of the same source produce identical bytes: the builder image is
+pinned (base digest and `apk` versions), modification times are normalized,
+and `zip -X` is fed a sorted file list. Any change to packaging must keep
+that true. In particular, never add `zip -y`: the archives store symlinks
+dereferenced, and `-y` would turn `node_modules/.bin` entries into links with
+no content, breaking the packages that need them. The check does not catch
+that on its own — a `-y` change rebuilt and committed together would pass.
+
 ## build-foxx.sh
 
 Builds all four Foxx deployment zips — `brightid5.zip`/`apply5.zip` from
@@ -77,7 +98,7 @@ before trusting a merge/release.
 
 ## test-stubs/
 
-Fake `arangod`, `arangosh`, `npm`, and `foxx` executables used only by
+Fake `arangod`, `arangosh`, `npm`, `foxx`, and `touch` executables used only by
 `build-foxx.test.sh`, prepended onto `PATH` for that test's duration. `foxx`
 supports env vars to simulate failure on demand:
 
@@ -85,6 +106,9 @@ supports env vars to simulate failure on demand:
 - `FOXX_FAIL_INSTALL_MOUNT=X` — `foxx install ...` exits 1 only when a
   mount argument contains `X` (e.g. `6`, to fail only v6's installs)
 - `FOXX_FAIL_TEST=<n>` — `foxx test ...` exits `<n>`
+
+`npm` exits 1 on `NPM_FAIL_CI=1`. `touch` translates the `touch -d @EPOCH`
+form the inner script uses, which BSD `touch` on macOS lacks.
 
 ## Adding more tooling tests
 

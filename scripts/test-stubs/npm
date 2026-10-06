@@ -1,4 +1,8 @@
 #!/bin/sh
-# Stub for build-foxx.test.sh: "npm ci" always succeeds without touching
-# the network or installing anything real.
+# Stub for build-foxx.test.sh: "npm ci" succeeds without touching the
+# network or installing anything real - or exits 1 if NPM_FAIL_CI=1.
+if [ -n "${NPM_FAIL_CI:-}" ]; then
+  echo "stub: simulated npm ci failure" >&2
+  exit 1
+fi
 exit 0
