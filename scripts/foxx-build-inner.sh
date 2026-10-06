@@ -75,7 +75,9 @@ zip_app() {
     echo "$dirlinks" >&2
     return 1
   fi
-  find "$1/APP" -exec touch -d "@${SOURCE_DATE_EPOCH:-0}" {} + || return 1
+  # A fixed time, not one from the environment, so every build matches the
+  # committed zips. Zip can't store dates before 1980, so entries read 1980-01-01.
+  find "$1/APP" -exec touch -d @0 {} + || return 1
   rm -f "$2" || return 1
   ( cd "$1" && find APP \( -type f -o -type l \) | LC_ALL=C sort | TZ=UTC zip -X -q -@ "$2" )
 }
