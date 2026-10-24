@@ -83,13 +83,47 @@ def row_to_app(row):
     return app_schema.load({k: v for k, v in app.items() if v is not None})
 
 
-def update():
+class FetchError(Exception):
+    pass
+
+
+def fetch_apps():
     try:
-        data = requests.get(config.APPS_JSON_API_URL).json()
-    except Exception as e:
-        print(f'Failed to get the data from api endpoint: {e}')
-        return
-    
+        res = requests.get(config.APPS_JSON_API_URL, timeout=60)
+    except requests.RequestException as e:
+        raise FetchError(f'request failed: {e}')
+    try:
+        data = res.json()
+    except ValueError:
+        data = None
+    if not 200 <= res.status_code < 300:
+        detail = ''
+        if isinstance(data, dict):
+            message = data.get('message') or data.get('error')
+            if message:
+                detail = f': {message}'
+        raise FetchError(f'HTTP {res.status_code}{detail}')
+    if not isinstance(data, list):
+        raise FetchError(
+            f'expected a JSON list, got {type(data).__name__}')
+    return data
+
+
+def update():
+    """Refresh the apps collection from the apps API. Returns True on
+    success.
+
+    When the apps list cannot be fetched, returns False instead of raising.
+    Both callers depend on that. main() advances APPS_LAST_UPDATE, the
+    variable that records when apps were last refreshed, only on True.
+    start.py calls update() before updating seed groups and sponsorships,
+    and a raise here would skip those two updates."""
+    try:
+        data = fetch_apps()
+    except FetchError as e:
+        print(f'Failed to get the apps from {config.APPS_JSON_API_URL}: {e}')
+        return False
+
     cursor = db.aql.execute('''
         FOR s in sponsorships
             FILTER s.expireDate == null
@@ -125,6 +159,8 @@ def update():
             'app': app
         })
 
+    return True
+
 
 def get_sponsorships(app_key):
     app_bytes = str2bytes32(app_key)
@@ -136,11 +172,13 @@ def get_sponsorships(app_key):
     return totalSponsorships
 
 
-if __name__ == '__main__':
+def main():
     try:
         print('\nUpdating apps', time.ctime())
         ts = time.time()
-        update()
+        if not update():
+            print('Apps not updated; APPS_LAST_UPDATE left unchanged\n')
+            return
 
         bn = tools.get_idchain_block_number()
         db.aql.execute('''
@@ -156,3 +194,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f'Error in apps updater: {e}\n')
         traceback.print_exc()
+
+
+if __name__ == '__main__':
+    main()
