@@ -1,0 +1,34 @@
+name: aura-scorer
+
+on:
+  push:
+    paths:
+      - 'scorer/**'
+      - '.github/workflows/aura-scorer.yml'
+  pull_request:
+    paths:
+      - 'scorer/**'
+      - '.github/workflows/aura-scorer.yml'
+
+jobs:
+  domain-isolation:
+    runs-on: ubuntu-latest
+    container: python:3.7-slim
+    permissions:
+      contents: read
+    services:
+      arangodb:
+        image: arangodb:3.9.1
+        env:
+          ARANGO_NO_AUTH: '1'
+        options: >-
+          --health-cmd "arangosh --server.authentication false --javascript.execute-string 'db._version()'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      AURA_TEST_ARANGO_URL: http://arangodb:8529
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install python-arango==7.5.1
+      - run: python scorer/test_aura.py -v
