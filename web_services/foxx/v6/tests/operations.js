@@ -271,6 +271,8 @@ describe("operations", function () {
 
   it("should store explicit Evaluate domains without normalization or fallback", function () {
     const counters = operationCountersColl.toArray();
+    const pair = { _from: "users/" + u4.id, _to: "users/" + u6.id };
+    const before = connectionsColl.firstExample(pair);
     try {
       ["BrightID", "Interfold", "interfold"].forEach((domain) => {
         const op = {
@@ -289,10 +291,7 @@ describe("operations", function () {
         );
         apply(op).json.state.should.equal("applied");
       });
-      const conn = connectionsColl.firstExample({
-        _from: "users/" + u4.id,
-        _to: "users/" + u6.id,
-      });
+      const conn = connectionsColl.firstExample(pair);
       conn.auraEvaluations.should.have.length(3);
       conn.auraEvaluations.map((evaluation) => evaluation.domain)
         .should.have.members(["BrightID", "Interfold", "interfold"]);
@@ -304,6 +303,8 @@ describe("operations", function () {
     } finally {
       operationCountersColl.truncate();
       counters.forEach((counter) => operationCountersColl.insert(counter));
+      connectionsColl.removeByExample(pair);
+      if (before) connectionsColl.insert(before);
     }
   });
 
