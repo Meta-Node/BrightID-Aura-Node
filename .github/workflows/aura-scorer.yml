@@ -2,6 +2,7 @@ name: aura-scorer
 
 on:
   push:
+    branches: [dev]
     paths:
       - 'scorer/**'
       - '.github/workflows/aura-scorer.yml'
