@@ -119,6 +119,25 @@ class AuraDomainIsolationTest(unittest.TestCase):
                 }, overwrite=True)
                 self.assertEqual(self.score(), baseline)
 
+    def test_replaced_other_domain_manager_cannot_redirect_energy(self):
+        baseline = self.score()
+        manager = self.connections.get('manager')
+        brightid = manager['auraEvaluations'][0]
+        for answer, confidence in (('positive', 4), ('negative', 1), ('positive', 1)):
+            with self.subTest(answer=answer, confidence=confidence):
+                # The node's evaluate() in web_services/foxx/v6/db.js keeps one
+                # evaluation per domain and category on an edge. A second
+                # Interfold manager write on this edge replaces the first
+                # Interfold one, and the BrightID manager evaluation from
+                # setUp stays. So each subTest gives the edge exactly those two
+                # evaluations, and the BrightID scores must not move.
+                manager['auraEvaluations'] = [brightid, {
+                    'domain': 'Interfold', 'category': 'manager',
+                    'evaluation': answer, 'confidence': confidence, 'modified': 789,
+                }]
+                self.connections.replace(manager, check_rev=False)
+                self.assertEqual(self.score(), baseline)
+
     def test_other_domain_roles_produce_no_brightid_verifications(self):
         for connection in self.connections.all():
             connection['auraEvaluations'][0]['domain'] = 'Interfold'
