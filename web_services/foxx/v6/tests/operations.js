@@ -219,6 +219,95 @@ describe("operations", function () {
     conn.auraEvaluations[0].confidence.should.equal(2.0);
   });
 
+  [undefined, ""].forEach((domain) => {
+    [true, false].forEach((existingConnection) => {
+      const label = domain === undefined ? "missing" : "empty";
+      it(`should reject an Evaluate with a ${label} domain on an ${existingConnection ? "existing" : "absent"} connection`, function () {
+        const evaluator = existingConnection ? u1 : u4;
+        const evaluated = existingConnection ? u2 : u5;
+        const pair = {
+          _from: "users/" + evaluator.id,
+          _to: "users/" + evaluated.id,
+        };
+        const before = connectionsColl.firstExample(pair);
+        const op = {
+          v: 6,
+          name: "Evaluate",
+          evaluator: evaluator.id,
+          evaluated: evaluated.id,
+          evaluation: "negative",
+          category: "subject",
+          confidence: 4,
+          timestamp: Date.now(),
+        };
+        if (domain !== undefined) op.domain = domain;
+        const message = getMessage(op);
+        op.sig = uInt8ArrayToB64(
+          Object.values(nacl.sign.detached(strToUint8Array(message), evaluator.secretKey))
+        );
+        const h = hash(message);
+
+        const submitted = request.post(`${baseUrl}/operations`, {
+          body: op,
+          json: true,
+        });
+        submitted.status.should.equal(400);
+        submitted.json.errorMessage.should.include("domain");
+        operationsColl.exists(h).should.equal(false);
+        chai.expect(connectionsColl.firstExample(pair)).to.deep.equal(before);
+
+        const applied = request.put(`${applyBaseUrl}/operations/${h}`, {
+          body: Object.assign({}, op, { blockTime: op.timestamp }),
+          json: true,
+        });
+        applied.status.should.equal(400);
+        applied.json.errorMessage.should.include("domain");
+        operationsColl.exists(h).should.equal(false);
+        operationsHashesColl.exists(h).should.equal(false);
+        chai.expect(connectionsColl.firstExample(pair)).to.deep.equal(before);
+      });
+    });
+  });
+
+  it("should store explicit Evaluate domains without normalization or fallback", function () {
+    const counters = operationCountersColl.toArray();
+    const pair = { _from: "users/" + u4.id, _to: "users/" + u6.id };
+    const before = connectionsColl.firstExample(pair);
+    try {
+      ["BrightID", "Interfold", "interfold"].forEach((domain) => {
+        const op = {
+          v: 6,
+          name: "Evaluate",
+          evaluator: u4.id,
+          evaluated: u6.id,
+          evaluation: "positive",
+          domain,
+          category: "Keyholder",
+          confidence: 2,
+          timestamp: Date.now(),
+        };
+        op.sig = uInt8ArrayToB64(
+          Object.values(nacl.sign.detached(strToUint8Array(getMessage(op)), u4.secretKey))
+        );
+        apply(op).json.state.should.equal("applied");
+      });
+      const conn = connectionsColl.firstExample(pair);
+      conn.auraEvaluations.should.have.length(3);
+      conn.auraEvaluations.map((evaluation) => evaluation.domain)
+        .should.have.members(["BrightID", "Interfold", "interfold"]);
+      conn.auraEvaluations.forEach((evaluation) => {
+        evaluation.category.should.equal("Keyholder");
+        evaluation.evaluation.should.equal("positive");
+        evaluation.confidence.should.equal(2);
+      });
+    } finally {
+      operationCountersColl.truncate();
+      counters.forEach((counter) => operationCountersColl.insert(counter));
+      connectionsColl.removeByExample(pair);
+      if (before) connectionsColl.insert(before);
+    }
+  });
+
   it('should be able to "Add Group"', function () {
     const timestamp = Date.now();
     const type = "general";
