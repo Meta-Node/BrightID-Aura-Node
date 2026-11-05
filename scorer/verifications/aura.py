@@ -67,6 +67,7 @@ def verify(block):
                         filter 'manager' in c.auraEvaluations[*].category 
                         filter c._from == concat('users/', e._key)
                         for eval in c.auraEvaluations
+                            filter eval.domain == "BrightID"
                             filter eval.category == 'manager' and eval.evaluation == 'positive'
                             return eval.confidence
                 )
@@ -76,6 +77,7 @@ def verify(block):
                     filter c._from == concat('users/', e._key)
                     let key = split(c._to,'/',2)[1]
                         for eval in c.auraEvaluations
+                            filter eval.domain == "BrightID"
                             filter eval.category == 'manager' and eval.evaluation == 'positive'
                             upsert { _key: key }
                             insert { _key: key, energy: e.energy * eval.confidence / scale }
@@ -107,6 +109,7 @@ def verify(block):
             )[0]
             
             for eval in c.auraEvaluations
+                filter eval.domain == "BrightID"
                 filter eval.category == "manager"
                 collect manager = split(c._to,'/',2)[1] into impacts = {
                     evaluator: from,
@@ -192,6 +195,7 @@ def verify(block):
             )[0]
         
             for eval in c.auraEvaluations
+                filter eval.domain == "BrightID"
                 filter eval.category == "trainer"
                 collect trainer = split(c._to,'/',2)[1] into impacts = {
                     evaluator: from,
@@ -278,6 +282,7 @@ def verify(block):
             )[0]
         
             for eval in c.auraEvaluations
+                filter eval.domain == "BrightID"
                 filter eval.category == "player"
                 collect player = split(c._to,'/',2)[1] into impacts = {
                     evaluator: from,
@@ -369,6 +374,7 @@ def verify(block):
             )[0]
         
             for eval in c.auraEvaluations
+                filter eval.domain == "BrightID"
                 filter eval.category == "subject"
                 collect subject = split(c._to,'/',2)[1] into impacts = {
                     evaluator: from,
